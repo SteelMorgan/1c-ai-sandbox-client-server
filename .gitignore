@@ -1,0 +1,50 @@
+# Agent tooling / IDE assistants (never commit)
+.agent/
+.agents/
+.claude/
+.continue/
+.gemini/
+.kiro/
+.opencode/
+.cursor/
+
+# Secrets and local overrides
+secrets/*
+!secrets/README.md
+!secrets/.env.example
+
+infra/vm/infobases.json
+infra/vm/infobases.txt
+infra/vm/.env
+infra/vm/.env.*
+!infra/vm/.env.example
+
+**/.env
+**/.env.local
+**/.env.*.local
+
+!.devcontainer/.env
+
+# Local caches / generated artifacts (never commit)
+.cache/
+
+# 1C platform installers (local-only; do not publish)
+.devcontainer/distr/*.run
+!.devcontainer/distr/.gitkeep
+
+# Editor / IDE
+.vscode/
+.idea/
+*.code-workspace
+
+# Common build/test caches
+**/__pycache__/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+node_modules/
+
+# OS / tooling
+**/.DS_Store
+**/Thumbs.db
+

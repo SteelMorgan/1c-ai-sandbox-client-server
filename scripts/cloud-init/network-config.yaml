@@ -1,0 +1,10 @@
+version: 2
+ethernets:
+  eth0:
+    match:
+      macaddress: "__MAC__"
+    # Keep a deterministic name (optional) but do not hardcode it.
+    # On some images the default name is not "eth0", which can break static IP setup.
+    set-name: "__NET_IFACE__"
+    dhcp4: true
+

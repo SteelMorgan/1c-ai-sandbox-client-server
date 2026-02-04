@@ -1,0 +1,65 @@
+#cloud-config
+
+package_update: true
+package_upgrade: false
+
+# Redirect cloud-init stage output to a log file (and console via systemd).
+output:
+  all: "| tee -a /var/log/cloud-init-output.log"
+
+users:
+  - name: sandbox
+    groups: [sudo]
+    shell: /bin/bash
+    sudo: ["ALL=(ALL) NOPASSWD:ALL"]
+    ssh_authorized_keys:
+      - "__SSH_PUBLIC_KEY__"
+
+bootcmd:
+  # Visible marker in Hyper-V console. If you don't see it, NoCloud user-data is not being applied.
+  - [bash, -lc, "echo '[onec] cloud-init bootcmd: started' > /dev/console || true"]
+
+write_files:
+  - path: /etc/sysctl.d/99-onec.conf
+    permissions: "0644"
+    content: |
+      vm.max_map_count=262144
+
+runcmd:
+  - [bash, -lc, "echo '[onec] cloud-init runcmd: begin' > /dev/console || true"]
+  - [bash, -lc, "date -Is | sed 's/^/[onec] time: /' > /dev/console || true"]
+  - [bash, -lc, "echo '[onec] target static IP: __IP_ADDR__/__PREFIX__ gw=__GATEWAY__ dns=__DNS1__,__DNS2__ iface=__NET_IFACE__ mac=__MAC__' > /dev/console || true"]
+
+  # Basic deps
+  - [bash, -lc, "apt-get install -y --no-install-recommends ca-certificates curl gnupg lsb-release openssh-server linux-cloud-tools-virtual"]
+  - [bash, -lc, "systemctl enable --now ssh || true"]
+  - [bash, -lc, "echo '[onec] ssh: enabled' > /dev/console || true"]
+
+  # Docker Engine + Compose plugin
+  - [bash, -lc, "install -m 0755 -d /etc/apt/keyrings"]
+  # NOTE: do not use `curl | gpg` without `pipefail` — it masks curl failures as `gpg exit 2`.
+  - [bash, -lc, "set -euxo pipefail; tmp=$(mktemp); trap 'rm -f \"$tmp\"' EXIT; curl -fsSL --retry 5 --retry-delay 2 --retry-all-errors https://download.docker.com/linux/ubuntu/gpg -o \"$tmp\"; test -s \"$tmp\" || { echo 'ERROR: docker gpg key download is empty (no internet/DNS/proxy?)' >&2; exit 10; }; grep -q 'BEGIN PGP PUBLIC KEY BLOCK' \"$tmp\" || { echo 'ERROR: docker gpg key download is not an armored PGP key. First lines:' >&2; head -n 20 \"$tmp\" >&2 || true; exit 11; }; gpg --batch --yes --dearmor -o /etc/apt/keyrings/docker.gpg \"$tmp\""]
+  - [bash, -lc, "chmod a+r /etc/apt/keyrings/docker.gpg"]
+  - [bash, -lc, "echo \"deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable\" > /etc/apt/sources.list.d/docker.list"]
+  - [bash, -lc, "apt-get update && apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin"]
+  - [bash, -lc, "systemctl enable --now docker"]
+  - [bash, -lc, "usermod -aG docker sandbox || true"]
+  - [bash, -lc, "echo '[onec] docker: enabled' > /dev/console || true"]
+
+  # Firewall (optional but recommended): allow SSH + 1C + Postgres
+  - [bash, -lc, "apt-get install -y ufw || true"]
+  - [bash, -lc, "ufw allow 22/tcp || true"]
+  - [bash, -lc, "ufw allow 1540/tcp || true"]
+  - [bash, -lc, "ufw allow 1541/tcp || true"]
+  - [bash, -lc, "ufw allow 1545/tcp || true"]
+  - [bash, -lc, "ufw allow 1560:1591/tcp || true"]
+  - [bash, -lc, "ufw allow 5432/tcp || true"]
+  - [bash, -lc, "ufw --force enable || true"]
+  - [bash, -lc, "echo '[onec] ufw: configured' > /dev/console || true"]
+
+  # Apply static netplan at the very end (keep DHCP working while installing packages).
+  - [bash, -lc, "echo '[onec] netplan: DHCP (no static config)' > /dev/console || true"]
+  - [bash, -lc, "echo '[onec] cloud-init runcmd: end' > /dev/console || true"]
+
+final_message: "cloud-init finished. SSH user: sandbox"
+

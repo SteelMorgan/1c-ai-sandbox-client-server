@@ -1,0 +1,10 @@
+[
+  {
+    "name": "demo",
+    "dbms": "PostgreSQL",
+    "db_server": "postgres",
+    "db_name": "demo",
+    "locale": "ru_RU"
+  }
+]
+

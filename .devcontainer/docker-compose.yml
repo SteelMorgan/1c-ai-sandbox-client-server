@@ -1,0 +1,62 @@
+services:
+  agent:
+    container_name: 1c-ai-sandbox
+    hostname: 1c-ai-sandbox
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+      args:
+        # Must match the version required by the runner (exact 4-part version).
+        ONEC_VERSION: ${ONEC_VERSION}
+      secrets:
+        - onec_username
+        - onec_password
+        - dev_login
+        - dev_password
+    environment:
+      ONEC_VERSION: ${ONEC_VERSION}
+      # Some 1C tools require an X server even in "batch" mode.
+      # We run Xvfb on :99 in entrypoint to satisfy this requirement.
+      DISPLAY: ":99"
+    env_file:
+      - .env
+      - ../infra/vm/.env
+    # Runtime secrets (mounted into /run/secrets/*). Required for onec-activate-community.sh.
+    secrets:
+      - dev_login
+      - dev_password
+    volumes:
+      # Separate workspace volume for 1C sandbox
+      - agent-work-sandbox-1c:/workspaces/work
+      # Persist licenses across rebuilds
+      - onec-licenses:/var/1C/licenses
+    extra_hosts:
+      - "STEEL-PC:host-gateway"
+      # 1C infra VM (mgmt IP) is synced dynamically from infra/vm/.env by .devcontainer/sync-onec-infra-hosts.sh
+    networks:
+      default: {}
+      infra:
+        ipv4_address: 192.168.0.10
+
+secrets:
+  # Build-time: download platform from releases.1c.ru (BuildKit secrets)
+  onec_username:
+    file: ../secrets/onec_username
+  onec_password:
+    file: ../secrets/onec_password
+  # Runtime: community activation (read by activation script)
+  dev_login:
+    file: ../secrets/dev_login
+  dev_password:
+    file: ../secrets/dev_password
+
+volumes:
+  agent-work-sandbox-1c:
+    external: true
+  onec-licenses:
+
+networks:
+  infra:
+    external: true
+    name: ${AGENT_INFRA_NETWORK:-infra}
+

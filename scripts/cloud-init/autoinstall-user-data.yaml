@@ -1,0 +1,123 @@
+#cloud-config
+#
+# Ubuntu Server autoinstall (Subiquity) configuration.
+# Used by New-OnecInfraVm.ps1 in ISO autoinstall mode.
+#
+
+autoinstall:
+  version: 1
+  # Make installation fully non-interactive (no language/keyboard prompts)
+  interactive-sections: []
+  # Keep VM OS locale aligned with 1C/Postgres expectations (ru_RU).
+  locale: ru_RU.UTF-8
+  keyboard:
+    layout: us
+    variant: ""
+  identity:
+    hostname: __HOSTNAME__
+    username: sandbox
+    # Random placeholder; SSH key auth is used and password login is disabled.
+    # Hash must be valid, but won't be used if allow-pw is false.
+    password: "$6$3hzUhI76KJXO6s9h$xk4n9NrUuYAHRTmx6ibgpZMc0bhUQHCMHkIXQQER7fdUnE46k3S1yvuViAqcgz76y1gs4qilfj8tLrA54UFdv0"
+
+  ssh:
+    install-server: true
+    allow-pw: false
+    authorized-keys:
+      - __SSH_PUBLIC_KEY__
+
+  # Minimal, predictable disk layout.
+  storage:
+    layout:
+      name: direct
+
+  # Network config for the installed system (netplan).
+  # We use:
+  # - DHCP on external NIC (LAN)
+  # - static IP on internal "management" NIC (host<->VM) so host can always SSH without router access.
+  network:
+    version: 2
+    renderer: networkd
+    ethernets:
+      lan0:
+        match:
+          macaddress: __MAC_LAN__
+        dhcp4: true
+      mgmt0:
+        match:
+          macaddress: __MAC_MGMT__
+        dhcp4: false
+        addresses:
+          - __MGMT_IP__/__MGMT_PREFIX__
+
+  # Keep install interactive bits off.
+  refresh-installer:
+    update: false
+
+  packages:
+    - openssh-server
+    - ca-certificates
+    - curl
+    - gnupg
+    - ufw
+
+  late-commands:
+    # Ensure SSH is enabled
+    - curtin in-target --target=/target -- bash -lc "systemctl enable --now ssh || true"
+
+    # Automation needs passwordless sudo for provisioning over SSH (Deploy/Smoke scripts use sudo).
+    - |
+      curtin in-target --target=/target -- bash -lc '
+      set -euo pipefail
+      cat > /etc/sudoers.d/90-sandbox-nopasswd <<EOF
+      sandbox ALL=(ALL) NOPASSWD:ALL
+      EOF
+      chmod 0440 /etc/sudoers.d/90-sandbox-nopasswd
+      '
+
+    # Workaround: disable IPv6 (Docker Hub pulls can hang on broken IPv6 and fail with TLS handshake timeouts).
+    - |
+      curtin in-target --target=/target -- bash -lc '
+      set -euo pipefail
+      cat > /etc/sysctl.d/99-disable-ipv6.conf <<EOF
+      net.ipv6.conf.all.disable_ipv6=1
+      net.ipv6.conf.default.disable_ipv6=1
+      EOF
+      sysctl --system >/dev/null || true
+      '
+
+    # Docker Engine + Compose plugin (official repo) for parity with existing scripts.
+    # NOTE: do not use `curl | gpg` without `pipefail` — it masks curl failures as `gpg exit 2`.
+    # Also validate the downloaded content: in some networks curl can return HTML (proxy/captive portal),
+    # and then gpg fails with exit=2 and the real cause is not visible in Subiquity.
+    - |
+      curtin in-target --target=/target -- bash -lc '
+      set -euxo pipefail
+      install -m 0755 -d /etc/apt/keyrings
+      tmp="$(mktemp)"
+      trap "rm -f \"$tmp\"" EXIT
+
+      curl -fsSL --retry 5 --retry-delay 2 --retry-all-errors \
+        https://download.docker.com/linux/ubuntu/gpg -o "$tmp"
+
+      if [ ! -s "$tmp" ]; then
+        echo "ERROR: docker gpg key download is empty (no internet/DNS/proxy?)" >&2
+        exit 10
+      fi
+
+      if ! grep -q "BEGIN PGP PUBLIC KEY BLOCK" "$tmp"; then
+        echo "ERROR: docker gpg key download is not an armored PGP key. First lines:" >&2
+        head -n 20 "$tmp" >&2 || true
+        exit 11
+      fi
+
+      gpg --batch --yes --dearmor -o /etc/apt/keyrings/docker.gpg "$tmp"
+      chmod a+r /etc/apt/keyrings/docker.gpg
+      '
+    - curtin in-target --target=/target -- bash -lc "set -eux; echo \"deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable\" > /etc/apt/sources.list.d/docker.list"
+    - curtin in-target --target=/target -- bash -lc "apt-get update && apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin"
+    - curtin in-target --target=/target -- bash -lc "systemctl enable --now docker || true && (getent group docker >/dev/null 2>&1 || groupadd docker) && usermod -aG docker sandbox || true"
+    - curtin in-target --target=/target -- bash -lc "systemctl restart docker || true"
+
+    # Firewall: allow SSH + 1C + Postgres
+    - curtin in-target --target=/target -- bash -lc "ufw allow 22/tcp || true; ufw allow 1540/tcp || true; ufw allow 1541/tcp || true; ufw allow 1545/tcp || true; ufw allow 1560:1591/tcp || true; ufw allow 5432/tcp || true; ufw --force enable || true"

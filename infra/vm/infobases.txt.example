@@ -1,0 +1,7 @@
+# One infobase name per line.
+# Allowed chars: A-Z a-z 0-9 _ - .
+# Empty lines and comments are ignored.
+
+base_name_1
+base_name_2
+

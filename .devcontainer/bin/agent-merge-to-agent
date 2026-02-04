@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Usage:
+#   agent-merge-to-agent
+#
+# Merges current branch into local "agent" branch (no fast-forward restriction),
+# then pushes "agent" to origin.
+
+git rev-parse --is-inside-work-tree >/dev/null 2>&1 || { echo "Not a git repo." >&2; exit 1; }
+
+current="$(git branch --show-current)"
+if [[ -z "$current" ]]; then
+  echo "Couldn't determine current branch." >&2
+  exit 1
+fi
+if [[ "$current" == "agent" ]]; then
+  echo "You're already on agent. Nothing to merge." >&2
+  exit 2
+fi
+
+git fetch --all --prune >/dev/null 2>&1 || true
+
+# Ensure agent exists
+if ! git show-ref --verify --quiet refs/heads/agent; then
+  if git show-ref --verify --quiet refs/remotes/origin/agent; then
+    git checkout -b agent --track origin/agent >/dev/null
+  else
+    git checkout -b agent >/dev/null
+  fi
+else
+  git checkout agent >/dev/null
+fi
+
+git merge --no-edit "$current"
+git push -u origin agent
+echo "OK: merged $current -> agent and pushed agent"
+

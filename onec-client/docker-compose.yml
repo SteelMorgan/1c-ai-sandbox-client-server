@@ -1,0 +1,51 @@
+services:
+  onec-client:
+    container_name: onec-client
+    build:
+      context: ..
+      dockerfile: onec-client/Dockerfile
+      args:
+        ONEC_VERSION: ${ONEC_VERSION}
+      secrets:
+        - onec_username
+        - onec_password
+        - dev_login
+        - dev_password
+    env_file:
+      # Canonical platform version (server-side single source of truth)
+      - ../infra/vm/.env
+      - .env
+    environment:
+      HOST_1C_SERVER: ${HOST_1C_SERVER:-host.docker.internal}
+    ports:
+      # noVNC (web)
+      - "6080:6080"
+    volumes:
+      - onec-client-home:/home/usr1cv8
+      - onec-client-licenses:/var/1C/licenses
+      # Share installed platform between containers (persist across rebuilds)
+      - onec-platform:/opt/1cv8
+      # Share the sandbox workspace volume so absolute paths match:
+      # /workspaces/work/... is accessible both in ai-agent-sandbox and here.
+      - agent-work-sandbox:/workspaces/work
+    shm_size: "1g"
+    restart: "no"
+
+secrets:
+  onec_username:
+    file: ../secrets/onec_username
+  onec_password:
+    file: ../secrets/onec_password
+  dev_login:
+    file: ../secrets/dev_login
+  dev_password:
+    file: ../secrets/dev_password
+
+volumes:
+  onec-client-home:
+  onec-client-licenses:
+  onec-platform:
+    external: true
+  agent-work-sandbox:
+    external: true
+

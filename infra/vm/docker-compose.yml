@@ -1,0 +1,135 @@
+services:
+  postgres:
+    image: akocur/postgresql-1c-17:latest
+    container_name: onec-postgres
+    network_mode: host
+    environment:
+      POSTGRES_DB: ${PGDATABASE:-postgres}
+      POSTGRES_USER: ${PGUSER:-onec}
+      POSTGRES_PASSWORD_FILE: /run/secrets/pg_password
+      LANG: ru_RU.UTF-8
+      # 1C expects databases to be created with C collation/ctype.
+      # Keep messages in ru_RU, but force collation/ctype for initdb.
+      LC_COLLATE: C
+      LC_CTYPE: C
+      LC_MESSAGES: ru_RU.UTF-8
+      # This image does not always define PGDATA itself; when empty, initdb tries to create "" and fails.
+      PGDATA: /var/lib/pgpro/1c-17/data
+    shm_size: ${PG_SHM_SIZE:-1g}
+    # The image defaults can request huge shared memory on startup (and crash on small VMs).
+    # Keep it conservative; can be tuned later via env/compose.
+    # Note: this image's entrypoint already invokes `postgres`. If we pass `postgres` again,
+    # it becomes an invalid argument ("postgres: invalid argument: \"postgres\"").
+    command: ["-c", "shared_buffers=256MB", "-c", "max_connections=100"]
+    secrets:
+      - pg_password
+    volumes:
+      - pgdata:/var/lib/pgpro/1c-17/data
+    healthcheck:
+      # Use TCP to avoid local peer auth (image uses `local ... peer` by default).
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
+  onec-server:
+    container_name: onec-server
+    hostname: onec-infra
+    network_mode: host
+    build:
+      context: ../..
+      dockerfile: infra/vm/onec-server/Dockerfile
+      args:
+        ONEC_VERSION: ${ONEC_VERSION}
+      secrets:
+        - onec_username
+        - onec_password
+        - dev_login
+        - dev_password
+    secrets:
+      - dev_login
+      - dev_password
+      - pg_password
+    environment:
+      # Optional: used by onec-activate-community.sh (it also reads /run/secrets/*)
+      DEV_LOGIN: ${DEV_LOGIN:-}
+      DEV_PASSWORD: ${DEV_PASSWORD:-}
+      LANG: ru_RU.UTF-8
+      LC_ALL: ru_RU.UTF-8
+      # Optional: if set, activation is required for healthcheck (otherwise it is required only when secrets are non-empty).
+      ENABLE_COMMUNITY_ACTIVATION: ${ENABLE_COMMUNITY_ACTIVATION:-0}
+      # 1C ports configuration (defaults are standard)
+      RAGENT_PORT: ${ONEC_RAGENT_PORT:-1540}
+      RAGENT_REGPORT: ${ONEC_REGPORT:-1541}
+      RAGENT_RANGE: ${ONEC_RANGE:-1560:1591}
+      RAS_PORT: ${ONEC_RAS_PORT:-1545}
+    volumes:
+      - onec-licenses:/var/1C/licenses
+      - onec-data:/var/lib/onec
+      - onec-logs:/var/log/onec
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "bash -lc 'set -euo pipefail; ep=\"127.0.0.1:$${RAS_PORT:-1545}\"; out=\"$$(/opt/1cv8/current/rac cluster list \"$$ep\" 2>/dev/null || true)\"; id=\"$$(printf \"%s\" \"$$out\" | grep -Eo \"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\" | head -n1 || true)\"; test -n \"$$id\"; test \"$$id\" != \"00000000-0000-0000-0000-000000000000\"; need_act=0; if [[ \"${ENABLE_COMMUNITY_ACTIVATION:-0}\" =~ ^(1|true|yes|y|on)$$ ]]; then need_act=1; elif [[ -s /run/secrets/dev_login && -s /run/secrets/dev_password ]]; then need_act=1; fi; if [[ \"$$need_act\" == \"1\" ]]; then find /var/1C/licenses -maxdepth 1 -type f -size +0 2>/dev/null | grep -q .; fi'"
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 180s
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  onec-init:
+    # Manual-only: infobase creation is orchestrated from the host (scripts/hyperv/New-OnecInfobase.ps1)
+    # after onec-server healthcheck + (optional) community activation.
+    profiles: ["manual"]
+    network_mode: host
+    build:
+      context: ../..
+      dockerfile: infra/vm/onec-server/Dockerfile
+      args:
+        ONEC_VERSION: ${ONEC_VERSION}
+      secrets:
+        - onec_username
+        - onec_password
+        - dev_login
+        - dev_password
+    # Override image ENTRYPOINT (server entrypoint) with one-shot init script.
+    # Otherwise the container starts ragent/ras and never runs the init logic.
+    entrypoint: ["/usr/local/bin/onec-init-infobases.sh"]
+    secrets:
+      - pg_password
+    environment:
+      RAS_ENDPOINT: "127.0.0.1:1545"
+      INFOBASES_JSON: "/etc/onec/infobases.json"
+    volumes:
+      - ./infobases.json:/etc/onec/infobases.json:ro
+    depends_on:
+      onec-server:
+        condition: service_started
+    restart: "no"
+
+secrets:
+  # Build-time: download platform from releases.1c.ru (BuildKit secrets) if local installer missing.
+  onec_username:
+    file: ../../secrets/onec_username
+  onec_password:
+    file: ../../secrets/onec_password
+  # Runtime: community activation (read by activation script)
+  dev_login:
+    file: ../../secrets/dev_login
+  dev_password:
+    file: ../../secrets/dev_password
+  pg_password:
+    file: ../../secrets/pg_password
+
+volumes:
+  pgdata:
+  onec-licenses:
+  onec-data:
+  onec-logs:
+

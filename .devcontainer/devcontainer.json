@@ -1,0 +1,13 @@
+{
+  "name": "ai-agent-sandbox (1C: platform + activation)",
+  "dockerComposeFile": [
+    "docker-compose.yml"
+  ],
+  "service": "agent",
+  "workspaceFolder": "/workspaces/work",
+  "remoteUser": "vscode",
+  "updateRemoteUserUID": false,
+  "postCreateCommand": "bash /usr/local/share/agent-sandbox/postCreateCommand.sh && bash .devcontainer/sync-onec-infra-hosts.sh && sudo /usr/local/bin/onec-activate-community.sh",
+  "postStartCommand": "bash /usr/local/share/agent-sandbox/postCreateCommand.sh && bash .devcontainer/sync-onec-infra-hosts.sh && sudo /usr/local/bin/onec-activate-community.sh"
+}
+

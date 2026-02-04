@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Usage:
+#   agent-task-branch <task-slug>
+#
+# Strategy:
+# - ensure local branch "agent" exists (tracking origin/agent if present)
+# - create a per-task branch off "agent": agent/<task>-<yyyymmdd>
+
+task="${1:-}"
+if [[ -z "$task" ]]; then
+  echo "Usage: agent-task-branch <task-slug>" >&2
+  exit 2
+fi
+
+task="$(echo "$task" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9._-]+/-/g; s/^-+|-+$//g; s/-{2,}/-/g')"
+if [[ -z "$task" ]]; then
+  echo "Task slug became empty after sanitization." >&2
+  exit 2
+fi
+
+git rev-parse --is-inside-work-tree >/dev/null 2>&1 || { echo "Not a git repo." >&2; exit 1; }
+
+# Fetch remotes best-effort
+git fetch --all --prune >/dev/null 2>&1 || true
+
+# Ensure "agent" branch exists locally
+if git show-ref --verify --quiet refs/heads/agent; then
+  git checkout agent >/dev/null
+elif git show-ref --verify --quiet refs/remotes/origin/agent; then
+  git checkout -b agent --track origin/agent >/dev/null
+else
+  # Create from current HEAD (typically main in a new repo). User controls merging agent->main via PR.
+  git checkout -b agent >/dev/null
+fi
+
+date_utc="$(date -u +%Y%m%d)"
+branch="agent/${task}-${date_utc}"
+git checkout -B "$branch" agent
+echo "OK: switched to $branch (from agent)"
+
