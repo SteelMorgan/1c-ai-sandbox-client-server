@@ -38,6 +38,9 @@ services:
       - onec-licenses:/var/1C/licenses
       # Persist GitHub CLI auth between container recreates/rebuilds.
       - gh-config-1c:/home/vscode/.config/gh
+      # Docker-outside-of-Docker (DoD): give the sandbox access to the host Docker daemon.
+      # WARNING: access to docker.sock is effectively root-equivalent on the Docker host.
+      - /var/run/docker.sock:/var/run/docker.sock
     extra_hosts:
       - "STEEL-PC:host-gateway"
       # 1C infra VM (mgmt IP) is synced dynamically from infra/vm/.env by .devcontainer/sync-onec-infra-hosts.sh
