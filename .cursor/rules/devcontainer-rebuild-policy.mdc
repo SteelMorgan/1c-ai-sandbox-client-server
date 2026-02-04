@@ -1,0 +1,28 @@
+---
+description: Запрет ребилда devcontainer через Docker CLI — только через Dev Containers
+alwaysApply: true
+---
+
+# Политика пересборки devcontainer (1C песочница)
+
+## Запрещено для агента
+
+Контейнер с клиентской частью песочницы (`1c-ai-sandbox`) **запрещено** пересобирать/пересоздавать через Docker CLI/Compose.
+
+Запрещённые действия (не исчерпывающе):
+- `docker build ...`
+- `docker compose build ...`
+- `docker compose up --build ...`
+- любые команды, которые триггерят rebuild образа или пересоздание контейнера для `1c-ai-sandbox`
+
+## Разрешено для агента
+
+- Править конфиги devcontainer и окружения: `.devcontainer/*`, `devcontainer.json`, `docker-compose.yml`, скрипты entrypoint/postCreate и т.п.
+- Объяснять пользователю, что нужно сделать **в Dev Containers** (VS Code / Cursor):
+  - `Dev Containers: Rebuild Container`
+  - `Dev Containers: Reopen in Container`
+  - другие операции расширения Dev Containers, которые управляют rebuild/recreate корректно
+
+## Почему так
+
+Ручной rebuild через Docker CLI может сломать ожидаемый workflow Dev Containers и привести к нестабильному состоянию песочницы.

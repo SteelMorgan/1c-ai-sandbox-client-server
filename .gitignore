@@ -6,7 +6,8 @@
 .gemini/
 .kiro/
 .opencode/
-.cursor/
+.cursor/*
+!.cursor/rules/
 !.cursor/rules/devcontainer-rebuild-policy.mdc
 
 # Secrets and local overrides
