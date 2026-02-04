@@ -30,11 +30,14 @@ services:
     secrets:
       - dev_login
       - dev_password
+      - github_token
     volumes:
       # Separate workspace volume for 1C sandbox
       - agent-work-sandbox-1c:/workspaces/work
       # Persist licenses across rebuilds
       - onec-licenses:/var/1C/licenses
+      # Persist GitHub CLI auth between container recreates/rebuilds.
+      - gh-config-1c:/home/vscode/.config/gh
     extra_hosts:
       - "STEEL-PC:host-gateway"
       # 1C infra VM (mgmt IP) is synced dynamically from infra/vm/.env by .devcontainer/sync-onec-infra-hosts.sh
@@ -54,11 +57,15 @@ secrets:
     file: ../secrets/dev_login
   dev_password:
     file: ../secrets/dev_password
+  # Runtime: GitHub CLI auth (PAT). Used by .devcontainer/gh-auth-bootstrap.sh
+  github_token:
+    file: ../secrets/github_token
 
 volumes:
   agent-work-sandbox-1c:
     external: true
   onec-licenses:
+  gh-config-1c:
 
 networks:
   infra:

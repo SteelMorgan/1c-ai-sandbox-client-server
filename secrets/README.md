@@ -6,6 +6,7 @@
 
 - `onec_username`, `onec_password` — учётка `releases.1c.ru` (нужна **только если** локального установщика нет и образ должен скачать дистрибутив во время сборки).
 - `dev_login`, `dev_password` — учётка `developer.1c.ru` (community activation).
+- `github_token` — GitHub PAT для `gh` внутри devcontainer (монтируется как `/run/secrets/github_token` и используется для автоматического `gh auth login`).
 - `pg_password` — пароль Postgres (монтируется как `/run/secrets/pg_password` и используется и Postgres-контейнером, и скриптами создания ИБ).
 
 ### Как подготовить

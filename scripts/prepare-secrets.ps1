@@ -73,6 +73,7 @@ $onecUsername = $m["ONEC_USERNAME"]
 $onecPassword = $m["ONEC_PASSWORD"]
 $devLogin = $m["DEV_LOGIN"]
 $devPassword = $m["DEV_PASSWORD"]
+$githubToken = $m["GITHUB_TOKEN"]
 $pgPassword = $m["PG_PASSWORD"]
 $forceOverwrite = $m["FORCE_OVERWRITE_PG_PASSWORD"]
 
@@ -80,6 +81,7 @@ Write-SecretFile (Join-Path $secretsPath "onec_username") $onecUsername
 Write-SecretFile (Join-Path $secretsPath "onec_password") $onecPassword
 Write-SecretFile (Join-Path $secretsPath "dev_login") $devLogin
 Write-SecretFile (Join-Path $secretsPath "dev_password") $devPassword
+Write-SecretFile (Join-Path $secretsPath "github_token") $githubToken
 
 # pg_password stability rules
 $pgFile = Join-Path $secretsPath "pg_password"
@@ -105,5 +107,6 @@ if ($pgPassword -and $pgPassword.Trim().Length -gt 0) {
 Write-Host "[OK] Secrets written to $secretsPath"
 Write-Host "     - onec_username/onec_password"
 Write-Host "     - dev_login/dev_password"
+Write-Host "     - github_token"
 Write-Host "     - pg_password"
 

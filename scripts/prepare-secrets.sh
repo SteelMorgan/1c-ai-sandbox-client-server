@@ -62,6 +62,7 @@ ONEC_USERNAME="$(get_env ONEC_USERNAME || true)"
 ONEC_PASSWORD="$(get_env ONEC_PASSWORD || true)"
 DEV_LOGIN="$(get_env DEV_LOGIN || true)"
 DEV_PASSWORD="$(get_env DEV_PASSWORD || true)"
+GITHUB_TOKEN="$(get_env GITHUB_TOKEN || true)"
 PG_PASSWORD="$(get_env PG_PASSWORD || true)"
 FORCE_OVERWRITE_PG_PASSWORD="$(get_env FORCE_OVERWRITE_PG_PASSWORD || true)"
 
@@ -80,6 +81,7 @@ write_secret "onec_username" "${ONEC_USERNAME:-}"
 write_secret "onec_password" "${ONEC_PASSWORD:-}"
 write_secret "dev_login" "${DEV_LOGIN:-}"
 write_secret "dev_password" "${DEV_PASSWORD:-}"
+write_secret "github_token" "${GITHUB_TOKEN:-}"
 
 # pg_password must be stable across re-deploys, otherwise existing Postgres volume becomes unusable
 # ("password authentication failed") and 1C infobase creation breaks.
@@ -129,5 +131,6 @@ chmod 0644 "$pg_path" 2>/dev/null || true
 echo "[OK] Secrets written to ${SECRETS_DIR}"
 echo "     - onec_username/onec_password (releases.1c.ru, optional if local installer exists)"
 echo "     - dev_login/dev_password (developer.1c.ru, community activation)"
+echo "     - github_token (GitHub PAT for gh CLI, optional)"
 echo "     - pg_password (Postgres password, optional)"
 
