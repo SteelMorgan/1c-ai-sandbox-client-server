@@ -1,6 +1,10 @@
 services:
   onec-client:
     container_name: onec-client
+    # Stabilize "hardware" identity for community license:
+    # - keep a deterministic MAC
+    # - persist machine-id via /var/lib/onec-machine (handled in entrypoint)
+    mac_address: "02:42:1c:00:00:01"
     build:
       context: ..
       dockerfile: onec-client/Dockerfile
@@ -23,6 +27,7 @@ services:
     volumes:
       - onec-client-home:/home/usr1cv8
       - onec-client-licenses:/var/1C/licenses
+      - onec-client-machine:/var/lib/onec-machine
       # Share installed platform between containers (persist across rebuilds)
       - onec-platform:/opt/1cv8
       # Share the sandbox workspace volume so absolute paths match:
@@ -44,6 +49,11 @@ secrets:
 volumes:
   onec-client-home:
   onec-client-licenses:
+    external: true
+    name: onec-client-licenses
+  onec-client-machine:
+    external: true
+    name: onec-client-machine
   onec-platform:
     external: true
   agent-work-sandbox:

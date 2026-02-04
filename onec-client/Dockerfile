@@ -5,7 +5,14 @@ ARG DOWNLOADER_TAG=latest
 FROM ${DOWNLOADER_REGISTRY_URL}/${DOWNLOADER_IMAGE}:${DOWNLOADER_TAG} AS downloader
 
 ARG ONEC_VERSION
-RUN : "${ONEC_VERSION:?ONEC_VERSION argument is required}"
+# Fallback: read ONEC_VERSION from infra/vm/.env if arg is not passed.
+COPY infra/vm/.env /tmp/infra.env
+RUN set -eux; \
+  if [ -z "${ONEC_VERSION:-}" ]; then \
+    ONEC_VERSION="$(grep -E '^ONEC_VERSION=' /tmp/infra.env | head -n1 | cut -d= -f2- | tr -d '\r' || true)"; \
+  fi; \
+  : "${ONEC_VERSION:?ONEC_VERSION is required (pass build arg or set infra/vm/.env)}"; \
+  printf "%s" "$ONEC_VERSION" >/tmp/ONEC_VERSION
 
 WORKDIR /tmp
 
@@ -17,6 +24,7 @@ RUN --mount=type=bind,source=.devcontainer/distr,target=/tmp/local-distr,readonl
     --mount=type=secret,id=onec_password,required=false \
     --mount=type=cache,target=/tmp/downloads \
     set -eux; \
+    ONEC_VERSION="$(cat /tmp/ONEC_VERSION)"; \
     mkdir -p "/tmp/out/Platform83/${ONEC_VERSION}"; \
     if ls "/tmp/local-distr/setup-full-${ONEC_VERSION}"*.run >/dev/null 2>&1; then \
       echo "[INFO] Using local installer from .devcontainer/distr"; \
@@ -80,17 +88,21 @@ RUN locale-gen ru_RU.UTF-8 && update-locale LANG=ru_RU.UTF-8
 ENV LANG=ru_RU.UTF-8 LC_ALL=ru_RU.UTF-8 LANGUAGE=ru_RU:ru
 ENV NO_AT_BRIDGE=1
 
-ENV distrPath=/tmp/downloads/Platform83/${ONEC_VERSION}
 ENV nls=false
 ENV installer_type=client
 
-COPY ./scripts/onec-install.sh /onec-install.sh
-COPY ./scripts /opt/onec-client/scripts
-COPY --from=downloader /tmp/out/Platform83/${ONEC_VERSION} /tmp/downloads/Platform83/${ONEC_VERSION}
+COPY onec-client/scripts/onec-install.sh /onec-install.sh
+COPY onec-client/scripts /opt/onec-client/scripts
+COPY --from=downloader /tmp/out/Platform83/ /tmp/downloads/Platform83/
+COPY infra/vm/.env /tmp/infra.env
 
-WORKDIR ${distrPath}
-
-RUN chmod +x /onec-install.sh \
+RUN set -eux; \
+  if [ -z "${ONEC_VERSION:-}" ]; then \
+    ONEC_VERSION="$(grep -E '^ONEC_VERSION=' /tmp/infra.env | head -n1 | cut -d= -f2- | tr -d '\r' || true)"; \
+  fi; \
+  : "${ONEC_VERSION:?ONEC_VERSION is required (pass build arg or set infra/vm/.env)}"; \
+  cd "/tmp/downloads/Platform83/${ONEC_VERSION}"; \
+  chmod +x /onec-install.sh \
   && sed -i 's/\r$//' /onec-install.sh \
   && /onec-install.sh \
   && rm -f /onec-install.sh \
@@ -102,7 +114,15 @@ RUN set -eux; \
   elif [ -d "/opt/1cv8/amd64" ]; then arch_dir="amd64"; \
   else arch_dir="$(ls -1 /opt/1cv8 | grep -E 'x86_64|amd64' | head -n1 || true)"; fi; \
   [ -n "${arch_dir:-}" ]; \
-  ln -sfn "/opt/1cv8/${arch_dir}/${ONEC_VERSION}" /opt/1cv8/current
+  ver="${ONEC_VERSION:-}"; \
+  if [ -z "${ver:-}" ] && [ -f /tmp/infra.env ]; then \
+    ver="$(grep -E '^ONEC_VERSION=' /tmp/infra.env | head -n1 | cut -d= -f2- | tr -d '\r' || true)"; \
+  fi; \
+  if [ -z "${ver:-}" ]; then \
+    ver="$(ls -1 "/opt/1cv8/${arch_dir}" 2>/dev/null | sort -V | tail -n1 || true)"; \
+  fi; \
+  : "${ver:?Failed to determine installed 1C version}"; \
+  ln -sfn "/opt/1cv8/${arch_dir}/${ver}" /opt/1cv8/current
 
 ENV PATH="/opt/1cv8/current:${PATH}"
 
@@ -117,10 +137,10 @@ RUN set -eux; \
 RUN mkdir -p /var/1C/licenses \
   && chown -R usr1cv8:grp1cv8 /var/1C/licenses
 
-COPY ./ActivateCommunity.epf /opt/onec-client/ActivateCommunity.epf
-COPY ./scripts/entrypoint.sh /entrypoint.sh
-COPY ./scripts/license_activator.sh /opt/onec-client/scripts/license_activator.sh
-COPY ./scripts/license_expiring_soon.sh /opt/onec-client/scripts/license_expiring_soon.sh
+COPY onec-client/ActivateCommunity.epf /opt/onec-client/ActivateCommunity.epf
+COPY onec-client/scripts/entrypoint.sh /entrypoint.sh
+COPY onec-client/scripts/license_activator.sh /opt/onec-client/scripts/license_activator.sh
+COPY onec-client/scripts/license_expiring_soon.sh /opt/onec-client/scripts/license_expiring_soon.sh
 
 RUN sed -i 's/\r$//' /entrypoint.sh /opt/onec-client/scripts/*.sh \
   && chmod +x /entrypoint.sh /opt/onec-client/scripts/*.sh
