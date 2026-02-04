@@ -9,10 +9,44 @@ set -euo pipefail
 # - /opt/onec-client/ActivateCommunity.epf
 # - secrets mounted at /run/secrets/dev_login and /run/secrets/dev_password
 
+#
+# IMPORTANT (client Community license):
+# - Activation often needs root (write /opt/1cv8/conf/conf.cfg, start ibsrv, etc.)
+# - But the 1C client (Designer/Configurator) often detects the license only when
+#   it is placed in the invoking user's profile:
+#     ~/<user>/.1cv8/1C/1cv8/conf/*.lic
+#
+# This script is designed to be run via sudo and then move *.lic from /var/1C/licenses
+# into the invoking user's profile (owner: user, mode: 0644).
+#
+
 LOG_DIR="/var/log/onec"
 STATUS_FILE="${LOG_DIR}/activation.status"
 DONE_FILE="${LOG_DIR}/activation.done"
 mkdir -p "$LOG_DIR"
+
+SYSTEM_LICENSE_DIR="/var/1C/licenses"
+
+invoking_user="${SUDO_USER:-$(id -un)}"
+if [[ "${invoking_user}" == "root" || -z "${invoking_user}" ]]; then
+  # Best-effort fallback for devcontainers.
+  if id -u vscode >/dev/null 2>&1; then invoking_user="vscode"; fi
+fi
+
+invoking_home="$(getent passwd "${invoking_user}" 2>/dev/null | awk -F: '{print $6}' | head -n1 || true)"
+if [[ -z "${invoking_home:-}" ]]; then
+  invoking_home="/home/${invoking_user}"
+fi
+
+invoking_group="$(id -gn "${invoking_user}" 2>/dev/null || true)"
+if [[ -z "${invoking_group:-}" ]]; then
+  invoking_group="${invoking_user}"
+fi
+
+LICENSE_DIR="${invoking_home}/.1cv8/1C/1cv8/conf"
+mkdir -p "$LICENSE_DIR" 2>/dev/null || true
+chown -R "${invoking_user}:${invoking_group}" "${invoking_home}/.1cv8" 2>/dev/null || true
+chmod -R 755 "${invoking_home}/.1cv8" 2>/dev/null || true
 
 started_at="$(date -Is 2>/dev/null || true)"
 ACTIVATION_STATE="running"
@@ -36,7 +70,11 @@ write_status() {
     printf "finished_at=%s\n" "${finished_at:-}"
     printf "reason=%s\n" "${reason:-}"
     printf "error_summary=%s\n" "${error_summary:-}"
-    if find /var/1C/licenses -maxdepth 1 -type f -size +0 2>/dev/null | grep -q .; then
+    printf "invoking_user=%s\n" "${invoking_user:-}"
+    printf "invoking_home=%s\n" "${invoking_home:-}"
+    printf "user_license_dir=%s\n" "${LICENSE_DIR:-}"
+    printf "system_license_dir=%s\n" "${SYSTEM_LICENSE_DIR:-}"
+    if find "$LICENSE_DIR" -maxdepth 1 -type f -name '*.lic' -size +0 2>/dev/null | grep -q .; then
       printf "licenses_present=1\n"
     else
       printf "licenses_present=0\n"
@@ -136,11 +174,25 @@ fi
 # Do not print secrets. Print only lengths for diagnostics.
 echo "[INFO] Activation credentials: login_len=${#DEV_LOGIN} password_len=${#DEV_PASSWORD}"
 
-mkdir -p /var/1C/licenses
-if find /var/1C/licenses -maxdepth 1 -type f -size +0 2>/dev/null | grep -q .; then
-  echo "[INFO] Licenses already exist in /var/1C/licenses. Skipping activation."
+if find "$LICENSE_DIR" -maxdepth 1 -type f -name '*.lic' -size +0 2>/dev/null | grep -q .; then
+  echo "[INFO] Licenses already exist in ${LICENSE_DIR}. Skipping activation."
   ACTIVATION_STATE="success"
   ACTIVATION_REASON="licenses_already_exist"
+  exit 0
+fi
+
+# If activation already produced system licenses earlier, copy them into user's profile.
+mkdir -p "${SYSTEM_LICENSE_DIR}" || true
+if find "${SYSTEM_LICENSE_DIR}" -maxdepth 1 -type f -name '*.lic' -size +0 2>/dev/null | grep -q .; then
+  echo "[INFO] Found existing licenses in ${SYSTEM_LICENSE_DIR}; copying to ${LICENSE_DIR}"
+  for f in "${SYSTEM_LICENSE_DIR}"/*.lic; do
+    [ -e "$f" ] || continue
+    cp -f "$f" "${LICENSE_DIR}/"
+  done
+  chown -R "${invoking_user}:${invoking_group}" "${invoking_home}/.1cv8" 2>/dev/null || true
+  chmod 644 "${LICENSE_DIR}"/*.lic 2>/dev/null || true
+  ACTIVATION_STATE="success"
+  ACTIVATION_REASON="copied_existing_system_licenses"
   exit 0
 fi
 
@@ -152,8 +204,8 @@ if command -v curl >/dev/null 2>&1; then
 fi
 
 ACTIVATION_DB_NAME="EmptyIB_Activation"
-ACTIVATION_DB_PATH="/home/usr1cv8/Documents/${ACTIVATION_DB_NAME}"
-mkdir -p "/home/usr1cv8/Documents"
+ACTIVATION_DB_PATH="${HOME}/Documents/${ACTIVATION_DB_NAME}"
+mkdir -p "${HOME}/Documents" 2>/dev/null || true
 
 if [[ ! -d "$ACTIVATION_DB_PATH" ]]; then
   echo "[INFO] Creating empty infobase: $ACTIVATION_DB_PATH"
@@ -217,7 +269,7 @@ set +e
 timeout 600s xvfb-run -a /opt/1cv8/current/1cv8c ENTERPRISE \
   /S "localhost:${ACTIVATION_IB_REGPORT}/${ACTIVATION_DB_NAME}" \
   /Execute "/opt/onec-client/ActivateCommunity.epf" \
-  /C "login=${DEV_LOGIN};password=${DEV_PASSWORD};acceptLicense=true;forAllUsers=true" \
+  /C "login=${DEV_LOGIN};password=${DEV_PASSWORD};acceptLicense=true" \
   /DisableStartupMessages \
   /UseHwLicenses-
 rc=$?
@@ -242,11 +294,8 @@ if [[ "$rc" -ne 0 ]]; then
   exit 12
 fi
 
-chown -R usr1cv8:grp1cv8 /var/1C/licenses || true
-chmod -R 755 /var/1C/licenses || true
-
-if ! find /var/1C/licenses -maxdepth 1 -type f -size +0 2>/dev/null | grep -q .; then
-  echo "[ERROR] Activation finished but no license files were created in /var/1C/licenses"
+if ! find "${SYSTEM_LICENSE_DIR}" -maxdepth 1 -type f -name '*.lic' -size +0 2>/dev/null | grep -q .; then
+  echo "[ERROR] Activation finished but no license files were created in ${SYSTEM_LICENSE_DIR}"
   ACTIVATION_STATE="failed"
   ACTIVATION_REASON="no_license_files_created"
   ACTIVATION_ERROR_SUMMARY="$(collect_error_summary)"
@@ -257,14 +306,20 @@ if ! find /var/1C/licenses -maxdepth 1 -type f -size +0 2>/dev/null | grep -q .;
     echo "[DIAG] ibsrv tail (last 120):"
     tail -n 120 "$log" 2>/dev/null || true
   fi
-  echo "[DIAG] /var/1C/licenses listing:"
-  ls -la /var/1C/licenses 2>/dev/null || true
-  echo "[DIAG] Recent files in /root/.1cv8 (may contain logs):"
-  find /root/.1cv8 -maxdepth 5 -type f -mmin -60 -printf "%TY-%Tm-%Td %TH:%TM %s %p\n" 2>/dev/null | tail -n 40 || true
-  echo "[DIAG] Recent files in /home/usr1cv8 (activation IB):"
-  find /home/usr1cv8 -maxdepth 5 -type f -mmin -60 -printf "%TY-%Tm-%Td %TH:%TM %s %p\n" 2>/dev/null | tail -n 40 || true
+  echo "[DIAG] System license dir listing (${SYSTEM_LICENSE_DIR}):"
+  ls -la "${SYSTEM_LICENSE_DIR}" 2>/dev/null || true
   exit 11
 fi
+
+echo "[INFO] Copying licenses from ${SYSTEM_LICENSE_DIR} to ${LICENSE_DIR} (owner=${invoking_user}:${invoking_group})"
+mkdir -p "$LICENSE_DIR" 2>/dev/null || true
+for f in "${SYSTEM_LICENSE_DIR}"/*.lic; do
+  [ -e "$f" ] || continue
+  cp -f "$f" "${LICENSE_DIR}/"
+done
+
+chown -R "${invoking_user}:${invoking_group}" "${invoking_home}/.1cv8" 2>/dev/null || true
+chmod 644 "${LICENSE_DIR}"/*.lic 2>/dev/null || true
 
 echo "[INFO] Community license activation finished."
 ACTIVATION_STATE="success"

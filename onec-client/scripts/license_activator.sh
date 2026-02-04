@@ -66,7 +66,7 @@ echo "[INFO] Running ActivateCommunity.epf..."
 /opt/1cv8/current/1cv8c ENTERPRISE \
   /S "localhost:${ACTIVATION_IB_REGPORT}/${ACTIVATION_DB_NAME}" \
   /Execute "/opt/onec-client/ActivateCommunity.epf" \
-  /C "login=${DEV_LOGIN};password=${DEV_PASSWORD};acceptLicense=true;forAllUsers=true" \
+  /C "login=${DEV_LOGIN};password=${DEV_PASSWORD};acceptLicense=true" \
   /DisableStartupMessages \
   /UseHwLicenses-
 
