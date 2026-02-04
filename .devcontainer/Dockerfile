@@ -9,7 +9,14 @@
 FROM sleemp/onec-installer-downloader:latest AS downloader
 
 ARG ONEC_VERSION
-RUN : "${ONEC_VERSION:?ONEC_VERSION argument is required}"
+# Fallback: read ONEC_VERSION from infra/vm/.env if arg is not passed (Dev Containers build).
+COPY infra/vm/.env /tmp/infra.env
+RUN set -eux; \
+  if [ -z "${ONEC_VERSION:-}" ]; then \
+    ONEC_VERSION="$(grep -E '^ONEC_VERSION=' /tmp/infra.env | head -n1 | cut -d= -f2- | tr -d '\r' || true)"; \
+  fi; \
+  : "${ONEC_VERSION:?ONEC_VERSION is required (pass build arg or set infra/vm/.env)}"; \
+  printf "%s" "$ONEC_VERSION" >/tmp/ONEC_VERSION
 
 # Prefer local installer if present, else download via BuildKit secrets.
 # Local path (inside build context): .devcontainer/distr/setup-full-${ONEC_VERSION}*.run
@@ -19,6 +26,7 @@ RUN --mount=type=bind,source=.devcontainer/distr,target=/tmp/local-distr,readonl
     --mount=type=secret,id=onec_password,required=false \
     --mount=type=cache,target=/tmp/downloads \
     set -eux; \
+    ONEC_VERSION="$(cat /tmp/ONEC_VERSION)"; \
     mkdir -p "/tmp/out/Platform83/${ONEC_VERSION}"; \
     if ls "/tmp/local-distr/setup-full-${ONEC_VERSION}"*.run >/dev/null 2>&1; then \
       echo "[INFO] Using local installer from .devcontainer/distr"; \
@@ -88,7 +96,9 @@ RUN apt-get update \
     locales \
     net-tools \
     iproute2 \
+    openjdk-21-jdk \
     openjdk-17-jdk \
+    gradle \
     xvfb \
     dbus-x11 \
     xauth \
@@ -112,19 +122,28 @@ RUN apt-get update \
     libodbc2 \
     fonts-dejavu \
     fonts-liberation \
-  && locale-gen ru_RU.UTF-8 && update-locale LANG=ru_RU.UTF-8 \
+  && locale-gen ru_RU.UTF-8 \
+  && update-locale LANG=ru_RU.UTF-8 LC_ALL=ru_RU.UTF-8 LC_CTYPE=ru_RU.UTF-8 LANGUAGE=ru_RU:ru \
   && rm -rf /var/lib/apt/lists/*
 
-# Prepare distribution path
-ENV distrPath=/tmp/downloads/Platform83/${ONEC_VERSION}
-WORKDIR ${distrPath}
+# For Gradle builds inside the container.
+ENV JAVA_HOME="/usr/lib/jvm/java-21-openjdk-amd64" \
+    JAVA_HOME_21="/usr/lib/jvm/java-21-openjdk-amd64" \
+    JAVA_HOME_17="/usr/lib/jvm/java-17-openjdk-amd64"
 
-# Bring installer payload
-COPY --from=downloader /tmp/out/Platform83/${ONEC_VERSION} /tmp/downloads/Platform83/${ONEC_VERSION}
+# Prepare distribution payload (copy whole Platform83 tree to avoid relying on ARG expansion)
+COPY --from=downloader /tmp/out/Platform83/ /tmp/downloads/Platform83/
 
 # Install platform (client_full + server_admin for ibcmd/ibsrv)
 COPY ./onec-client/scripts/onec-install.sh /onec-install.sh
-RUN sed -i 's/\r$//' /onec-install.sh \
+COPY infra/vm/.env /tmp/infra.env
+RUN set -eux; \
+  if [ -z "${ONEC_VERSION:-}" ]; then \
+    ONEC_VERSION="$(grep -E '^ONEC_VERSION=' /tmp/infra.env | head -n1 | cut -d= -f2- | tr -d '\r' || true)"; \
+  fi; \
+  : "${ONEC_VERSION:?ONEC_VERSION is required (pass build arg or set infra/vm/.env)}"; \
+  cd "/tmp/downloads/Platform83/${ONEC_VERSION}"; \
+  sed -i 's/\r$//' /onec-install.sh \
   && chmod +x /onec-install.sh \
   && installer_type=client nls=false /onec-install.sh \
   && rm -f /onec-install.sh \
@@ -136,7 +155,20 @@ RUN set -eux; \
   elif [ -d "/opt/1cv8/amd64" ]; then arch_dir="amd64"; \
   else arch_dir="$(ls -1 /opt/1cv8 | grep -E 'x86_64|amd64' | head -n1 || true)"; fi; \
   [ -n "${arch_dir:-}" ]; \
-  ln -sfn "/opt/1cv8/${arch_dir}/${ONEC_VERSION}" /opt/1cv8/current
+  ver="${ONEC_VERSION:-}"; \
+  if [ -z "${ver:-}" ] && [ -f /tmp/infra.env ]; then \
+    ver="$(grep -E '^ONEC_VERSION=' /tmp/infra.env | head -n1 | cut -d= -f2- | tr -d '\r' || true)"; \
+  fi; \
+  if [ -z "${ver:-}" ]; then \
+    ver="$(ls -1 "/opt/1cv8/${arch_dir}" 2>/dev/null | sort -V | tail -n1 || true)"; \
+  fi; \
+  : "${ver:?Failed to determine installed 1C version}"; \
+  ln -sfn "/opt/1cv8/${arch_dir}/${ver}" /opt/1cv8/current
+
+ENV LANG="ru_RU.UTF-8" \
+    LC_ALL="ru_RU.UTF-8" \
+    LC_CTYPE="ru_RU.UTF-8" \
+    LANGUAGE="ru_RU:ru"
 
 ENV PATH="/opt/1cv8/current:${PATH}"
 

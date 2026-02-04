@@ -10,6 +10,13 @@ set -euo pipefail
 # - DISPLAY itself is injected via docker-compose.yml, but we also default it here.
 export DISPLAY="${DISPLAY:-:99}"
 
+# Force UTF-8 locale for all child processes (1C tools included).
+# This prevents Cyrillic file/folder names from being replaced with '???' under LANG=C.
+export LANG="${LANG:-ru_RU.UTF-8}"
+export LC_ALL="${LC_ALL:-ru_RU.UTF-8}"
+export LC_CTYPE="${LC_CTYPE:-ru_RU.UTF-8}"
+export LANGUAGE="${LANGUAGE:-ru_RU:ru}"
+
 start_xvfb() {
   # Derive socket path from DISPLAY (e.g. :99 -> /tmp/.X11-unix/X99).
   # (If DISPLAY is something like :99.0, strip the screen suffix.)

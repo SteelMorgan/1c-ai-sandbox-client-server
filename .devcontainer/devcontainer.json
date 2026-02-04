@@ -7,6 +7,12 @@
   "workspaceFolder": "/workspaces/work",
   "remoteUser": "vscode",
   "updateRemoteUserUID": false,
+  "remoteEnv": {
+    "LANG": "ru_RU.UTF-8",
+    "LC_ALL": "ru_RU.UTF-8",
+    "LC_CTYPE": "ru_RU.UTF-8",
+    "LANGUAGE": "ru_RU:ru"
+  },
   "postCreateCommand": "bash /usr/local/share/agent-sandbox/postCreateCommand.sh && bash .devcontainer/sync-onec-infra-hosts.sh && sudo /usr/local/bin/onec-activate-community.sh",
   "postStartCommand": "bash /usr/local/share/agent-sandbox/postCreateCommand.sh && bash .devcontainer/sync-onec-infra-hosts.sh && sudo /usr/local/bin/onec-activate-community.sh"
 }

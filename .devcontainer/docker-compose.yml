@@ -18,6 +18,11 @@ services:
       # Some 1C tools require an X server even in "batch" mode.
       # We run Xvfb on :99 in entrypoint to satisfy this requirement.
       DISPLAY: ":99"
+      # Force UTF-8 locale inside the sandbox so Cyrillic file names are preserved.
+      LANG: "ru_RU.UTF-8"
+      LC_ALL: "ru_RU.UTF-8"
+      LC_CTYPE: "ru_RU.UTF-8"
+      LANGUAGE: "ru_RU:ru"
     env_file:
       - .env
       - ../infra/vm/.env
