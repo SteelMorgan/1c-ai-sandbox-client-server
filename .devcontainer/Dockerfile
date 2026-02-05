@@ -192,15 +192,18 @@ RUN sed -i 's/\r$//' /usr/local/bin/onec-activate-community.sh \
 RUN mkdir -p /usr/local/share/agent-sandbox
 COPY ./.devcontainer/postCreateCommand.sh /usr/local/share/agent-sandbox/postCreateCommand.sh
 COPY ./.devcontainer/entrypoint.sh /usr/local/share/agent-sandbox/entrypoint.sh
+COPY ./.devcontainer/sync-onec-infra-hosts.sh /usr/local/share/agent-sandbox/sync-onec-infra-hosts.sh
+COPY ./.devcontainer/gh-auth-bootstrap.sh /usr/local/share/agent-sandbox/gh-auth-bootstrap.sh
 COPY ./.devcontainer/bin/agent-new-branch /usr/local/bin/agent-new-branch
 COPY ./.devcontainer/bin/agent-task-branch /usr/local/bin/agent-task-branch
 COPY ./.devcontainer/bin/agent-merge-to-agent /usr/local/bin/agent-merge-to-agent
 COPY ./.devcontainer/bin/agent-open-pr /usr/local/bin/agent-open-pr
 RUN sed -i 's/\r$//' /usr/local/share/agent-sandbox/postCreateCommand.sh \
   && sed -i 's/\r$//' /usr/local/share/agent-sandbox/entrypoint.sh \
+  && sed -i 's/\r$//' /usr/local/share/agent-sandbox/sync-onec-infra-hosts.sh /usr/local/share/agent-sandbox/gh-auth-bootstrap.sh \
   && sed -i 's/\r$//' /usr/local/bin/agent-new-branch /usr/local/bin/agent-task-branch /usr/local/bin/agent-merge-to-agent /usr/local/bin/agent-open-pr \
   && chmod 0555 /usr/local/bin/agent-new-branch /usr/local/bin/agent-task-branch /usr/local/bin/agent-merge-to-agent /usr/local/bin/agent-open-pr \
-  && chmod +x /usr/local/share/agent-sandbox/postCreateCommand.sh /usr/local/share/agent-sandbox/entrypoint.sh
+  && chmod +x /usr/local/share/agent-sandbox/postCreateCommand.sh /usr/local/share/agent-sandbox/entrypoint.sh /usr/local/share/agent-sandbox/sync-onec-infra-hosts.sh /usr/local/share/agent-sandbox/gh-auth-bootstrap.sh
 
 ENTRYPOINT ["/usr/local/share/agent-sandbox/entrypoint.sh"]
 USER root

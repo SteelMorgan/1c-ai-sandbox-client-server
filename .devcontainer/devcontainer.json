@@ -13,7 +13,7 @@
     "LC_CTYPE": "ru_RU.UTF-8",
     "LANGUAGE": "ru_RU:ru"
   },
-  "postCreateCommand": "bash /usr/local/share/agent-sandbox/postCreateCommand.sh && bash .devcontainer/sync-onec-infra-hosts.sh && bash .devcontainer/gh-auth-bootstrap.sh && sudo /usr/local/bin/onec-activate-community.sh",
-  "postStartCommand": "bash /usr/local/share/agent-sandbox/postCreateCommand.sh && bash .devcontainer/sync-onec-infra-hosts.sh && bash .devcontainer/gh-auth-bootstrap.sh && sudo /usr/local/bin/onec-activate-community.sh"
+  "postCreateCommand": "bash /usr/local/share/agent-sandbox/postCreateCommand.sh && (bash /usr/local/share/agent-sandbox/sync-onec-infra-hosts.sh || bash .devcontainer/sync-onec-infra-hosts.sh || true) && (bash /usr/local/share/agent-sandbox/gh-auth-bootstrap.sh || bash .devcontainer/gh-auth-bootstrap.sh || true) && sudo /usr/local/bin/onec-activate-community.sh",
+  "postStartCommand": "bash /usr/local/share/agent-sandbox/postCreateCommand.sh && (bash /usr/local/share/agent-sandbox/sync-onec-infra-hosts.sh || bash .devcontainer/sync-onec-infra-hosts.sh || true) && (bash /usr/local/share/agent-sandbox/gh-auth-bootstrap.sh || bash .devcontainer/gh-auth-bootstrap.sh || true) && sudo /usr/local/bin/onec-activate-community.sh"
 }
 

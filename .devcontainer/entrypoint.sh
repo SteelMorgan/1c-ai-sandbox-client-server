@@ -102,6 +102,15 @@ if [ -d "/workspaces/work" ]; then
   chmod 0777 /workspaces/work/.config /workspaces/work/.githooks || true
 fi
 
+# Ensure gh config dir is writable for vscode even when it's a named volume (can come in as root:root).
+if id -u vscode >/dev/null 2>&1; then
+  gh_dir="/home/vscode/.config/gh"
+  mkdir -p "$gh_dir" 2>/dev/null || true
+  chown -R vscode:vscode "$gh_dir" 2>/dev/null || true
+  chmod 0700 "$gh_dir" 2>/dev/null || true
+  chmod 0600 "$gh_dir"/*.yml 2>/dev/null || true
+fi
+
 # Optional: if docker.sock is mounted, allow vscode to talk to Docker without sudo.
 # WARNING: access to docker.sock is effectively root-equivalent on the Docker host.
 if [ -S "/var/run/docker.sock" ]; then

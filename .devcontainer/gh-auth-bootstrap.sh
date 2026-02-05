@@ -17,9 +17,26 @@ fi
 
 host="${GITHUB_HOSTNAME:-github.com}"
 token_file="/run/secrets/github_token"
+gh_dir="${HOME}/.config/gh"
 
 if [[ ! -s "$token_file" ]]; then
   echo "[WARN] ${token_file} is missing or empty. Set GITHUB_TOKEN in secrets/.env and run scripts/prepare-secrets.* to generate secrets/github_token. Skipping GitHub auth bootstrap."
+  exit 0
+fi
+
+# Ensure gh config directory is writable by the current user.
+# When /home/vscode/.config/gh is backed by a named volume it can come in as root:root (not writable).
+mkdir -p "$gh_dir" 2>/dev/null || true
+if [[ ! -w "$gh_dir" ]]; then
+  if command -v sudo >/dev/null 2>&1; then
+    sudo mkdir -p "$gh_dir" 2>/dev/null || true
+    sudo chown -R "$(id -un)":"$(id -gn)" "$gh_dir" 2>/dev/null || true
+    sudo chmod 0700 "$gh_dir" 2>/dev/null || true
+  fi
+fi
+if [[ ! -w "$gh_dir" ]]; then
+  echo "[WARN] Cannot write to ${gh_dir} (permission denied). GitHub auth will not be persisted."
+  echo "[WARN] Fix: ensure the mounted volume has write permissions for the dev user (vscode)."
   exit 0
 fi
 
