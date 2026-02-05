@@ -40,6 +40,7 @@ services:
     build:
       context: ../..
       dockerfile: infra/vm/onec-server/Dockerfile
+      target: server
       args:
         ONEC_VERSION: ${ONEC_VERSION}
       secrets:
@@ -83,6 +84,34 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  onec-web:
+    # Apache 2.4 + 1C web extension (ws) for web client + HTTP services.
+    container_name: onec-web
+    hostname: onec-web
+    network_mode: host
+    build:
+      context: ../..
+      dockerfile: infra/vm/onec-server/Dockerfile
+      target: web
+      args:
+        ONEC_VERSION: ${ONEC_VERSION}
+      secrets:
+        - onec_username
+        - onec_password
+        - dev_login
+        - dev_password
+    environment:
+      LANG: ru_RU.UTF-8
+      LC_ALL: ru_RU.UTF-8
+      # Host networking => this is VM host port.
+      APACHE_LISTEN_PORT: ${ONEC_WEB_PORT_HOST:-8080}
+    volumes:
+      - onec-web-data:/var/lib/onec-web
+    depends_on:
+      onec-server:
+        condition: service_started
+    restart: unless-stopped
+
   onec-init:
     # Manual-only: infobase creation is orchestrated from the host (scripts/hyperv/New-OnecInfobase.ps1)
     # after onec-server healthcheck + (optional) community activation.
@@ -91,6 +120,7 @@ services:
     build:
       context: ../..
       dockerfile: infra/vm/onec-server/Dockerfile
+      target: server
       args:
         ONEC_VERSION: ${ONEC_VERSION}
       secrets:
@@ -132,4 +162,5 @@ volumes:
   onec-licenses:
   onec-data:
   onec-logs:
+  onec-web-data:
 

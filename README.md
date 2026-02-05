@@ -8,7 +8,7 @@
 Всё разделено на две части:
 
 - **Клиентская часть (Dev Container)**: Linux‑контейнер с установленной платформой 1С **для клиента** (толстый/тонкий клиент, в т.ч. Конфигуратор) + “обвязка”, чтобы инструменты 1С стабильно работали в headless‑режиме.
-- **Серверная часть (VM в Hyper‑V)**: отдельная Ubuntu VM, внутри неё Docker Compose со связкой **1С сервер + Postgres**.
+- **Серверная часть (VM в Hyper‑V)**: отдельная Ubuntu VM, внутри неё Docker Compose со связкой **1С сервер + Postgres + Apache (веб‑публикации)**.
 - разработано под VSC/Cursor. Совместимпость с другими IDE не гарантирована
    
 ### Архитектура (схема)
@@ -29,9 +29,10 @@
 │  agent (Linux)                    │   │  docker + docker compose         │
 │   - 1С клиент + Конфигуратор      │   │   - onec-server                  │
 │   - Xvfb :99 (headless display)   │   │   - postgres                     │
+│                                   │   │   - onec-web (Apache)            │
 │   - community-активация КЛИЕНТА   │   │                                  │
 │     (если заданы DEV_* креды)     │   │  Порты наружу: 1540/1541/1545,   │
-│                                   │   │  1560-1591, 5432                 │
+│                                   │   │  1560-1591, 5432, 8080           │
 │                                   │   └──────────────────────────────────┘
 │  Volumes:                         │   
 │   - workspace volume              │
@@ -69,7 +70,17 @@
   - `MGMT_VM_IP` — management IP VM из `infra/vm/.env`
   - (прим.: `192.168.254.2 onec-infra`)
 
-После успешной развёртки у тебя есть VM с Ubuntu + Docker и внутри неё подняты контейнеры 1С‑сервера и Postgres.
+После успешной развёртки у тебя есть VM с Ubuntu + Docker и внутри неё подняты контейнеры `onec-server`, `postgres` и `onec-web` (Apache для веб‑публикаций).
+
+#### Веб‑публикация (web‑клиент + HTTP‑сервисы)
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\hyperv\Publish-OnecInfobase.ps1 -Action Publish -InfobaseName demo
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\hyperv\Publish-OnecInfobase.ps1 -Action Update  -InfobaseName demo
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\hyperv\Publish-OnecInfobase.ps1 -Action Unpublish -InfobaseName demo
+```
+
+По умолчанию Apache слушает `ONEC_WEB_PORT_HOST=8080` (настраивается в `infra/vm/.env`).
 
 ### Что делает скрипт развёртки (в общих чертах)
 
@@ -78,7 +89,7 @@
 1. Берёт значения из `secrets/.env` и готовит Docker‑secrets файлы (без печати значений).
 2. Скачивает **официальный Ubuntu Server ISO**, **патчит его под autoinstall** и использует уже пропатченный ISO для установки VM.
 3. Создаёт VM в Hyper‑V, настраивает доступ по SSH и дожидается, пока VM станет доступна.
-4. Загружает на VM нужные файлы и поднимает Docker Compose стек: **1С сервер + Postgres**.
+4. Загружает на VM нужные файлы и поднимает Docker Compose стек: **1С сервер + Postgres + Apache (веб‑публикации)**.
 5. Дожидается health‑состояния 1С‑сервера и делает базовые проверки (порты/кластер).
 
 ### Как запускать серверный сценарий

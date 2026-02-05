@@ -32,7 +32,7 @@ RUN --mount=type=bind,source=.devcontainer/distr,target=/tmp/local-distr,readonl
       cp -a "/tmp/downloads/Platform83/${ONEC_VERSION}/." "/tmp/out/Platform83/${ONEC_VERSION}/"; \
     fi
 
-FROM ubuntu:24.04
+FROM ubuntu:24.04 AS server
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 USER root
@@ -134,4 +134,38 @@ VOLUME ["/var/1C/licenses", "/var/lib/onec", "/var/log/onec"]
 EXPOSE 1540 1541 1545
 
 ENTRYPOINT ["/usr/local/bin/onec-server-entrypoint.sh"]
+
+##
+## Apache web publication image (web client + HTTP services)
+## - Uses the same installed 1C payload (component ws) from the server image
+## - Runs Apache in foreground and manages publications via /usr/local/bin/onec-webinst.sh
+##
+FROM server AS web
+
+# Apache runtime
+RUN apt-get update -o Acquire::ForceIPv4=true -o Acquire::Retries=3 \
+  && apt-get install -y --no-install-recommends \
+    apache2 \
+    apache2-utils \
+    libapache2-mod-fcgid \
+  && a2enmod headers rewrite \
+  && rm -rf /var/lib/apt/lists/*
+
+# Persist publications + webinst-managed Apache fragment
+ENV APACHE_LISTEN_PORT=8080
+ENV ONEC_WEB_ROOT=/var/lib/onec-web
+ENV ONEC_WEB_WWW=/var/lib/onec-web/www
+ENV ONEC_WEB_APACHE_FRAGMENT=/var/lib/onec-web/apache/onec.conf
+
+VOLUME ["/var/lib/onec-web"]
+
+COPY ./infra/vm/onec-web/onec-publications.conf /etc/apache2/conf-available/onec-publications.conf
+COPY ./infra/vm/onec-web/entrypoint.sh /usr/local/bin/onec-web-entrypoint.sh
+COPY ./infra/vm/onec-web/onec-webinst.sh /usr/local/bin/onec-webinst.sh
+RUN sed -i 's/\r$//' /etc/apache2/conf-available/onec-publications.conf /usr/local/bin/onec-web-entrypoint.sh /usr/local/bin/onec-webinst.sh \
+  && chmod +x /usr/local/bin/onec-web-entrypoint.sh /usr/local/bin/onec-webinst.sh \
+  && a2enconf onec-publications
+
+EXPOSE 8080
+ENTRYPOINT ["/usr/local/bin/onec-web-entrypoint.sh"]
 

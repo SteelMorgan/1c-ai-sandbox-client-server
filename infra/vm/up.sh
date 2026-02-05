@@ -9,6 +9,29 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 docker_() { sudo -n docker "$@"; }
 
+ensure_ufw_ports() {
+  # Keep VM firewall aligned with exposed services.
+  # VM images used by this repo typically have UFW enabled with default deny incoming.
+  if ! command -v ufw >/dev/null 2>&1; then
+    return 0
+  fi
+  if ! sudo -n ufw status 2>/dev/null | grep -qi '^Status:\s*active'; then
+    return 0
+  fi
+
+  # Web publication (Apache in onec-web container)
+  local web_port="${ONEC_WEB_PORT_HOST:-}"
+  if [[ -z "${web_port}" && -f "${ROOT_DIR}/infra/vm/.env" ]]; then
+    web_port="$(grep -E '^ONEC_WEB_PORT_HOST=' "${ROOT_DIR}/infra/vm/.env" 2>/dev/null | tail -n1 | cut -d= -f2- | tr -d '\r' || true)"
+  fi
+  if [[ -z "${web_port}" ]]; then
+    web_port="8080"
+  fi
+  if [[ "${web_port}" =~ ^[0-9]{1,5}$ ]]; then
+    sudo -n ufw allow "${web_port}/tcp" >/dev/null 2>&1 || true
+  fi
+}
+
 install_autostart_systemd() {
   # Configure infra autostart on VM boot via systemd.
   # Why: Docker restart policies are good, but this makes the behavior explicit and self-healing
@@ -64,5 +87,6 @@ else
   echo "[WARN] secrets/pg_password is missing/empty. Skipping Postgres role/password init."
 fi
 
+ensure_ufw_ports
 install_autostart_systemd
 

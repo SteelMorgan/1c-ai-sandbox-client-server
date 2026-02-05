@@ -9,7 +9,7 @@
 
 ### Что тут лежит
 
-- `docker-compose.yml` — `onec-server` + `postgres` (и ручной `onec-init`, если понадобится).
+- `docker-compose.yml` — `onec-server` + `postgres` + `onec-web` (и ручной `onec-init`, если понадобится).
 - `onec-server/` — Dockerfile и entrypoint для 1С сервера (берёт локальный `.run` из `.devcontainer/distr`, иначе скачивает).
 - `infobases.example.json` — пример конфига ИБ (JSON-массив) для `onec-init` (регистрация через `rac` внутри контейнера).
 - `infobases.txt.example` — пример списка ИБ (по одной в строке), для **host-side** автосоздания после деплоя (см. `Deploy-OnecInfra.ps1` → `New-OnecInfobase.ps1`).
@@ -73,6 +73,25 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\hyperv\New-OnecInfobase.
 Скрипт спросит:
 - `Ref` (имя ИБ в кластере, используется в строке подключения `Srvr=...;Ref=...;`)
 - имя БД Postgres (по умолчанию = `Ref`)
+
+### Веб‑публикация (web‑клиент + HTTP‑сервисы)
+
+В составе стека по умолчанию поднимается контейнер `onec-web` (Apache 2.4) и слушает порт:
+
+- `ONEC_WEB_PORT_HOST` из `infra/vm/.env` (по умолчанию `8080`, см. `.env.example`)
+
+Публикация управляется host‑side скриптом (PowerShell на Windows-хосте):
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\hyperv\Publish-OnecInfobase.ps1 -Action Publish -InfobaseName demo
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\hyperv\Publish-OnecInfobase.ps1 -Action Update  -InfobaseName demo
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\hyperv\Publish-OnecInfobase.ps1 -Action Unpublish -InfobaseName demo
+```
+
+URL после публикации:
+
+- `http://<VM_IP>:<ONEC_WEB_PORT_HOST>/<Ref>/`
+- HTTP‑сервисы: `http://<VM_IP>:<ONEC_WEB_PORT_HOST>/<Ref>/hs/<service>`
 
 ### Автосоздание ИБ по списку (host-side)
 
