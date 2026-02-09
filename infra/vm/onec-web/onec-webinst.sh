@@ -73,6 +73,33 @@ fi
 
 apache_flag="-apache24"
 
+ensure_vrd_features() {
+  # webinst generates a minimal VRD (web client only). For /hs (HTTP services) and REST endpoints,
+  # VRD must include <httpServices/> and <rest/> sections.
+  #
+  # Idempotent: adds sections only if they are missing.
+  local vrd_path="$1"
+  if [[ -z "${vrd_path}" || ! -f "${vrd_path}" ]]; then
+    return 0
+  fi
+
+  local changed=0
+
+  if ! grep -qE '<httpServices\b' "${vrd_path}" 2>/dev/null; then
+    perl -0777 -i -pe 's#</point>\s*$#\t<httpServices publishExtensionsByDefault="true"/>\n</point>#s' "${vrd_path}" || true
+    changed=1
+  fi
+
+  if ! grep -qE '<rest\b' "${vrd_path}" 2>/dev/null; then
+    perl -0777 -i -pe 's#</point>\s*$#\t<rest publishExtensionsByDefault="true"/>\n</point>#s' "${vrd_path}" || true
+    changed=1
+  fi
+
+  if [[ "${changed}" == "1" ]]; then
+    echo "[INFO] Updated VRD to enable HTTP/REST services: ${vrd_path}"
+  fi
+}
+
 normalize_wsap_paths() {
   # Persisted fragment can survive ONEC_VERSION bumps; normalize module paths to /opt/1cv8/current/*
   # Best-effort: cover typical wsap module names.
@@ -118,6 +145,8 @@ case "${action}" in
     else
       if [[ -n "${out:-}" ]]; then echo "${out}"; fi
     fi
+    # Ensure /hs (HTTP services) works for services in configuration + extensions.
+    ensure_vrd_features "${pub_dir}/default.vrd"
     normalize_wsap_paths
     apache2ctl -k graceful >/dev/null 2>&1 || true
     echo "[OK] Published '${alias}'"

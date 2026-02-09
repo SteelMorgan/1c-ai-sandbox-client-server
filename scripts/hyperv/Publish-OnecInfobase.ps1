@@ -25,6 +25,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+try { chcp 65001 | Out-Null } catch {}
 
 function Require-Cmd($name) {
   if (-not (Get-Command $name -ErrorAction SilentlyContinue)) {
@@ -173,6 +174,32 @@ if ($ec -ne 0) {
   throw "Container onec-web is not running on VM. Deploy infra first (Deploy-OnecInfra.ps1 / infra/vm/up.sh)."
 }
 
+$vrdPath = "/var/lib/onec-web/www/$Alias/default.vrd"
+function Ensure-VrdHttpServices([string]$remoteHost, [string[]]$sshOptions, [string]$path) {
+  # webinst may generate a minimal VRD without /hs and /rest sections.
+  # Ensure these sections exist so HTTP services from config + extensions are reachable.
+  $script = @"
+set -euo pipefail
+f="$path"
+test -f "$path"
+if ! grep -qF "<httpServices" "$path"; then
+  perl -0777 -i -pe 's#</point>\s*$#\t<httpServices publishExtensionsByDefault="true"/>\n</point>#s' "$path"
+fi
+if ! grep -qF "<rest" "$path"; then
+  perl -0777 -i -pe 's#</point>\s*$#\t<rest publishExtensionsByDefault="true"/>\n</point>#s' "$path"
+fi
+echo OK
+"@
+  $script = ($script -replace "`r","")
+  $inner = "sudo -n docker exec onec-web bash -lc " + (Bash-SingleQuote $script)
+  $cmd = "bash -lc " + (Bash-SingleQuote $inner)
+  $ec2 = 0
+  $out2 = Invoke-SshAny $remoteHost $sshOptions $cmd ([ref]$ec2)
+  if ($ec2 -ne 0) {
+    throw ("Failed to patch VRD for HTTP services (ssh exit={0}). VRD={1}. Output:`n{2}" -f $ec2, $path, ($out2 | Out-String))
+  }
+}
+
 $act = $Action.ToLowerInvariant()
 if ($act -eq "update") { $act = "publish" }
 if ($act -eq "unpublish") { $act = "unpublish" }
@@ -195,6 +222,11 @@ if ($ec -ne 0) {
   $txt = ""
   if ($out) { $txt = ($out | Out-String) }
   throw ("Failed to {0} publication (ssh exit={1}). Output:`n{2}" -f $Action, $ec, $txt)
+}
+
+# Ensure /hs and /rest are enabled in VRD (publish/update only).
+if ($act -eq "publish") {
+  Ensure-VrdHttpServices $remote $sshOpts $vrdPath
 }
 
 $url = "http://$VmIp`:$WebPort/$Alias/"
