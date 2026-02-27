@@ -30,6 +30,7 @@ infra/vm/.env.*
 # Local caches / generated artifacts (never commit)
 .cache/
 backups/
+.tmp/
 
 # 1C platform installers (local-only; do not publish)
 .devcontainer/distr/*.run
