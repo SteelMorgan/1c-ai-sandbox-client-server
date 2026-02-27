@@ -60,6 +60,9 @@ RUN apt-get update \
     python3 \
     python3-pip \
     python3-venv \
+    nodejs \
+    tmux \
+    npm \
   && rm -rf /var/lib/apt/lists/*
 
 # Passwordless sudo for vscode (enabled only when container is started without no-new-privileges).
@@ -188,12 +191,20 @@ COPY ./.devcontainer/onec-activate-community.sh /usr/local/bin/onec-activate-com
 RUN sed -i 's/\r$//' /usr/local/bin/onec-activate-community.sh \
   && chmod +x /usr/local/bin/onec-activate-community.sh
 
+# Claude Code CLI for agent workflows inside the sandbox.
+RUN npm install -g @anthropic-ai/claude-code
+
+# Codex CLI for agent workflows inside the sandbox.
+RUN npm install -g @openai/codex
+
 # Bootstrap scripts live in image (workspace is a volume and may be empty)
 RUN mkdir -p /usr/local/share/agent-sandbox
 COPY ./.devcontainer/postCreateCommand.sh /usr/local/share/agent-sandbox/postCreateCommand.sh
 COPY ./.devcontainer/entrypoint.sh /usr/local/share/agent-sandbox/entrypoint.sh
+COPY ./scripts/cc-custom-helper.mjs /usr/local/share/agent-sandbox/cc-custom-helper.mjs
 COPY ./.devcontainer/sync-onec-infra-hosts.sh /usr/local/share/agent-sandbox/sync-onec-infra-hosts.sh
 COPY ./.devcontainer/gh-auth-bootstrap.sh /usr/local/share/agent-sandbox/gh-auth-bootstrap.sh
+COPY ./.devcontainer/codex-bootstrap.sh /usr/local/share/agent-sandbox/codex-bootstrap.sh
 COPY ./.devcontainer/bin/agent-new-branch /usr/local/bin/agent-new-branch
 COPY ./.devcontainer/bin/agent-task-branch /usr/local/bin/agent-task-branch
 COPY ./.devcontainer/bin/agent-merge-to-agent /usr/local/bin/agent-merge-to-agent
@@ -201,9 +212,10 @@ COPY ./.devcontainer/bin/agent-open-pr /usr/local/bin/agent-open-pr
 RUN sed -i 's/\r$//' /usr/local/share/agent-sandbox/postCreateCommand.sh \
   && sed -i 's/\r$//' /usr/local/share/agent-sandbox/entrypoint.sh \
   && sed -i 's/\r$//' /usr/local/share/agent-sandbox/sync-onec-infra-hosts.sh /usr/local/share/agent-sandbox/gh-auth-bootstrap.sh \
+  && sed -i 's/\r$//' /usr/local/share/agent-sandbox/codex-bootstrap.sh \
   && sed -i 's/\r$//' /usr/local/bin/agent-new-branch /usr/local/bin/agent-task-branch /usr/local/bin/agent-merge-to-agent /usr/local/bin/agent-open-pr \
   && chmod 0555 /usr/local/bin/agent-new-branch /usr/local/bin/agent-task-branch /usr/local/bin/agent-merge-to-agent /usr/local/bin/agent-open-pr \
-  && chmod +x /usr/local/share/agent-sandbox/postCreateCommand.sh /usr/local/share/agent-sandbox/entrypoint.sh /usr/local/share/agent-sandbox/sync-onec-infra-hosts.sh /usr/local/share/agent-sandbox/gh-auth-bootstrap.sh
+  && chmod +x /usr/local/share/agent-sandbox/postCreateCommand.sh /usr/local/share/agent-sandbox/entrypoint.sh /usr/local/share/agent-sandbox/sync-onec-infra-hosts.sh /usr/local/share/agent-sandbox/gh-auth-bootstrap.sh /usr/local/share/agent-sandbox/codex-bootstrap.sh
 
 ENTRYPOINT ["/usr/local/share/agent-sandbox/entrypoint.sh"]
 USER root

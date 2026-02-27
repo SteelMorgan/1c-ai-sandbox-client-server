@@ -5,7 +5,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-function Repo-Root {
+function Get-RepoRoot {
   $here = $PSScriptRoot
   if (-not $here) { $here = (Resolve-Path ".").Path }
   return (Resolve-Path (Join-Path $here "..")).Path
@@ -54,7 +54,7 @@ function New-RandomSecret([int]$bytes = 24) {
   return $b64
 }
 
-$repoRoot = Repo-Root
+$repoRoot = Get-RepoRoot
 $secretsPath = $SecretsDir
 if (-not [System.IO.Path]::IsPathRooted($secretsPath)) { $secretsPath = Join-Path $repoRoot $SecretsDir }
 $envPath = $EnvFile
@@ -74,6 +74,7 @@ $onecPassword = $m["ONEC_PASSWORD"]
 $devLogin = $m["DEV_LOGIN"]
 $devPassword = $m["DEV_PASSWORD"]
 $githubToken = $m["GITHUB_TOKEN"]
+$ccApiKey = $m["CC_API_KEY"]
 $pgPassword = $m["PG_PASSWORD"]
 $forceOverwrite = $m["FORCE_OVERWRITE_PG_PASSWORD"]
 
@@ -82,6 +83,7 @@ Write-SecretFile (Join-Path $secretsPath "onec_password") $onecPassword
 Write-SecretFile (Join-Path $secretsPath "dev_login") $devLogin
 Write-SecretFile (Join-Path $secretsPath "dev_password") $devPassword
 Write-SecretFile (Join-Path $secretsPath "github_token") $githubToken
+Write-SecretFile (Join-Path $secretsPath "cc_api_key") $ccApiKey
 
 # pg_password stability rules
 $pgFile = Join-Path $secretsPath "pg_password"
@@ -108,5 +110,6 @@ Write-Host "[OK] Secrets written to $secretsPath"
 Write-Host "     - onec_username/onec_password"
 Write-Host "     - dev_login/dev_password"
 Write-Host "     - github_token"
+Write-Host "     - cc_api_key"
 Write-Host "     - pg_password"
 

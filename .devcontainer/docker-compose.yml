@@ -31,6 +31,7 @@ services:
       - dev_login
       - dev_password
       - github_token
+      - cc_api_key
     volumes:
       # Separate workspace volume for 1C sandbox
       - agent-work-sandbox-1c:/workspaces/work
@@ -63,6 +64,8 @@ secrets:
   # Runtime: GitHub CLI auth (PAT). Used by .devcontainer/gh-auth-bootstrap.sh
   github_token:
     file: ../secrets/github_token
+  cc_api_key:
+    file: ../secrets/cc_api_key
 
 volumes:
   agent-work-sandbox-1c:
