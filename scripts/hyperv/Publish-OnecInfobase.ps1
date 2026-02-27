@@ -182,7 +182,15 @@ function Ensure-VrdHttpServices([string]$remoteHost, [string[]]$sshOptions, [str
 set -euo pipefail
 f="$path"
 test -f "$path"
-if ! grep -qF "<httpServices" "$path"; then
+if grep -qF "<httpServices" "$path"; then
+  # Keep it minimal: remove any extra attributes (some builds reject them).
+  perl -0777 -i -pe 's#\s+rootUrl="[^"]*"# #g' "$path"
+  # Fix missing whitespace between attributes (best-effort).
+  perl -0777 -i -pe 's#(<httpServices[^>]*")(?=publishExtensionsByDefault)#$1 #g' "$path"
+  if ! grep -qE '<httpServices[^>]*\bpublishExtensionsByDefault="' "$path"; then
+    perl -0777 -i -pe 's#<httpServices([^>]*)/>#<httpServices$1 publishExtensionsByDefault="true"/>#g' "$path"
+  fi
+else
   perl -0777 -i -pe 's#</point>\s*$#\t<httpServices publishExtensionsByDefault="true"/>\n</point>#s' "$path"
 fi
 if ! grep -qF "<rest" "$path"; then

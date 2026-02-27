@@ -12,8 +12,12 @@ param(
   [string]$Alias = "",
   [string]$InfobaseName = "",
 
+  # Optional: explicit list of HTTP services to publish (names as in конфигуратор).
+  # Used only for Action=EnableHttpServicesExplicit.
+  [string[]]$HttpServiceNames = @("mcp_APIBackend","mcp"),
+
   # What to do.
-  [ValidateSet("Inspect","EnableHttpServices")]
+  [ValidateSet("Inspect","EnableHttpServices","EnableHttpServicesExplicit")]
   [string]$Action = "Inspect"
 )
 
@@ -144,9 +148,16 @@ if ($Action -eq "EnableHttpServices") {
   $patch = @"
 set -euo pipefail
 test -f "$pubPath"
-if ! grep -qF "<httpServices" "$pubPath"; then
+if grep -qF "<httpServices" "$pubPath"; then
+  perl -0777 -i -pe 's#\s+rootUrl="[^"]*"# #g' "$pubPath"
+  perl -0777 -i -pe 's#(<httpServices[^>]*")(?=publishExtensionsByDefault)#$1 #g' "$pubPath"
+  if ! grep -qE '<httpServices[^>]*\bpublishExtensionsByDefault="' "$pubPath"; then
+    perl -0777 -i -pe 's#<httpServices([^>]*)/>#<httpServices$1 publishExtensionsByDefault="true"/>#g' "$pubPath"
+  fi
+else
   perl -0777 -i -pe 's#</point>\s*$#\t<httpServices publishExtensionsByDefault="true"/>\n</point>#s' "$pubPath"
 fi
+
 if ! grep -qF "<rest" "$pubPath"; then
   perl -0777 -i -pe 's#</point>\s*$#\t<rest publishExtensionsByDefault="true"/>\n</point>#s' "$pubPath"
 fi
@@ -160,6 +171,59 @@ echo OK
   $out = Invoke-SshAny $remote $sshOpts $cmd ([ref]$ec)
   if ($ec -ne 0) { throw ("Patch failed (ssh exit={0}). Output:`n{1}" -f $ec, ($out | Out-String)) }
   Write-Host ("[OK] Enabled HTTP/REST services in VRD: {0}" -f $pubPath)
+  exit 0
+}
+
+if ($Action -eq "EnableHttpServicesExplicit") {
+  # Publish only selected HTTP services explicitly (avoids relying on publish-by-default semantics).
+  $names = @()
+  foreach ($n in @($HttpServiceNames)) {
+    if (-not $n) { continue }
+    $t = ("$n").Trim()
+    if (-not $t) { continue }
+    $names += (Validate-Name $t "HttpService name")
+  }
+  if (-not $names -or $names.Count -eq 0) { throw "HttpServiceNames is empty." }
+
+  $json = ($names | ConvertTo-Json -Compress)
+
+  $patch = @"
+set -euo pipefail
+test -f "$pubPath"
+export HTTP_SVC_NAMES_JSON='$json'
+python3 - <<'PY'
+import json, os, re
+from pathlib import Path
+
+p = Path(os.environ["VRD_PATH"])
+t = p.read_text(encoding="utf-8")
+
+names = json.loads(os.environ["HTTP_SVC_NAMES_JSON"])
+services_xml = "\n".join([f'\t\t<service name="{n}" enable="true"/>' for n in names])
+block = f'\t<httpServices publishExtensionsByDefault="true">\n{services_xml}\n\t</httpServices>'
+
+# Remove invalid legacy attributes if present.
+t = re.sub(r'\s+rootUrl="[^"]*"', " ", t)
+
+# Replace existing httpServices (self-closing or expanded) with explicit block.
+t2 = re.sub(r'\t<httpServices[^>]*/>\s*', block + "\n", t)
+t2 = re.sub(r'\t<httpServices[^>]*>.*?</httpServices>\s*', block + "\n", t2, flags=re.S)
+if t2 == t:
+    # Insert before </point>
+    t2 = re.sub(r'</point>\s*$', block + "\n</point>", t2)
+
+p.write_text(t2, encoding="utf-8")
+PY
+apache2ctl -k graceful >/dev/null 2>&1 || true
+echo OK
+"@
+  $patch = ($patch -replace "`r","")
+  $inner = "sudo -n docker exec -e VRD_PATH=$pubPath onec-web bash -lc " + (Bash-SingleQuote $patch)
+  $cmd = "bash -lc " + (Bash-SingleQuote $inner)
+  $ec2 = 0
+  $out2 = Invoke-SshAny $remote $sshOpts $cmd ([ref]$ec2)
+  if ($ec2 -ne 0) { throw ("Patch failed (ssh exit={0}). Output:`n{1}" -f $ec2, ($out2 | Out-String)) }
+  Write-Host ("[OK] Enabled explicit HTTP services in VRD: {0}" -f $pubPath)
   exit 0
 }
 
