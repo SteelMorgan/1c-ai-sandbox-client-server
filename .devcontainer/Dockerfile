@@ -191,31 +191,60 @@ COPY ./.devcontainer/onec-activate-community.sh /usr/local/bin/onec-activate-com
 RUN sed -i 's/\r$//' /usr/local/bin/onec-activate-community.sh \
   && chmod +x /usr/local/bin/onec-activate-community.sh
 
-# Claude Code CLI for agent workflows inside the sandbox.
+# AI CLI agents for agent workflows inside the sandbox.
+# Files are organised under cli-agents/{claude,codex,gemini}/ in the repo.
 RUN npm install -g @anthropic-ai/claude-code
-
-# Codex CLI for agent workflows inside the sandbox.
 RUN npm install -g @openai/codex
+RUN npm install -g @google/gemini-cli
 
-# Bootstrap scripts live in image (workspace is a volume and may be empty)
-RUN mkdir -p /usr/local/share/agent-sandbox
-COPY ./.devcontainer/postCreateCommand.sh /usr/local/share/agent-sandbox/postCreateCommand.sh
-COPY ./.devcontainer/entrypoint.sh /usr/local/share/agent-sandbox/entrypoint.sh
-COPY ./scripts/cc-custom-helper.mjs /usr/local/share/agent-sandbox/cc-custom-helper.mjs
-COPY ./.devcontainer/sync-onec-infra-hosts.sh /usr/local/share/agent-sandbox/sync-onec-infra-hosts.sh
-COPY ./.devcontainer/gh-auth-bootstrap.sh /usr/local/share/agent-sandbox/gh-auth-bootstrap.sh
-COPY ./.devcontainer/codex-bootstrap.sh /usr/local/share/agent-sandbox/codex-bootstrap.sh
-COPY ./.devcontainer/bin/agent-new-branch /usr/local/bin/agent-new-branch
-COPY ./.devcontainer/bin/agent-task-branch /usr/local/bin/agent-task-branch
-COPY ./.devcontainer/bin/agent-merge-to-agent /usr/local/bin/agent-merge-to-agent
-COPY ./.devcontainer/bin/agent-open-pr /usr/local/bin/agent-open-pr
-RUN sed -i 's/\r$//' /usr/local/share/agent-sandbox/postCreateCommand.sh \
-  && sed -i 's/\r$//' /usr/local/share/agent-sandbox/entrypoint.sh \
-  && sed -i 's/\r$//' /usr/local/share/agent-sandbox/sync-onec-infra-hosts.sh /usr/local/share/agent-sandbox/gh-auth-bootstrap.sh \
-  && sed -i 's/\r$//' /usr/local/share/agent-sandbox/codex-bootstrap.sh \
-  && sed -i 's/\r$//' /usr/local/bin/agent-new-branch /usr/local/bin/agent-task-branch /usr/local/bin/agent-merge-to-agent /usr/local/bin/agent-open-pr \
-  && chmod 0555 /usr/local/bin/agent-new-branch /usr/local/bin/agent-task-branch /usr/local/bin/agent-merge-to-agent /usr/local/bin/agent-open-pr \
-  && chmod +x /usr/local/share/agent-sandbox/postCreateCommand.sh /usr/local/share/agent-sandbox/entrypoint.sh /usr/local/share/agent-sandbox/sync-onec-infra-hosts.sh /usr/local/share/agent-sandbox/gh-auth-bootstrap.sh /usr/local/share/agent-sandbox/codex-bootstrap.sh
+# Bootstrap scripts live in image (workspace is a volume and may be empty at first start)
+RUN mkdir -p /usr/local/share/agent-sandbox/cli-agents/claude/tools \
+             /usr/local/share/agent-sandbox/cli-agents/codex \
+             /usr/local/share/agent-sandbox/cli-agents/gemini
+COPY ./.devcontainer/postCreateCommand.sh           /usr/local/share/agent-sandbox/postCreateCommand.sh
+COPY ./.devcontainer/entrypoint.sh                  /usr/local/share/agent-sandbox/entrypoint.sh
+COPY ./.devcontainer/sync-onec-infra-hosts.sh       /usr/local/share/agent-sandbox/sync-onec-infra-hosts.sh
+COPY ./.devcontainer/gh-auth-bootstrap.sh            /usr/local/share/agent-sandbox/gh-auth-bootstrap.sh
+COPY ./.devcontainer/cli-agents/claude/helper.mjs            /usr/local/share/agent-sandbox/cli-agents/claude/helper.mjs
+COPY ./.devcontainer/cli-agents/claude/bootstrap.sh          /usr/local/share/agent-sandbox/cli-agents/claude/bootstrap.sh
+COPY ./.devcontainer/cli-agents/claude/tools/claude-safe.sh  /usr/local/share/agent-sandbox/cli-agents/claude/tools/claude-safe.sh
+COPY ./.devcontainer/cli-agents/claude/tools/statusline.js   /usr/local/share/agent-sandbox/cli-agents/claude/tools/statusline.js
+COPY ./.devcontainer/cli-agents/codex/bootstrap.sh           /usr/local/share/agent-sandbox/cli-agents/codex/bootstrap.sh
+COPY ./.devcontainer/cli-agents/codex/model-map.json         /usr/local/share/agent-sandbox/cli-agents/codex/model-map.json
+COPY ./.devcontainer/cli-agents/codex/model-overrides.json   /usr/local/share/agent-sandbox/cli-agents/codex/model-overrides.json
+COPY ./.devcontainer/cli-agents/gemini/bootstrap.sh          /usr/local/share/agent-sandbox/cli-agents/gemini/bootstrap.sh
+COPY ./.devcontainer/bin/agent-new-branch      /usr/local/bin/agent-new-branch
+COPY ./.devcontainer/bin/agent-task-branch     /usr/local/bin/agent-task-branch
+COPY ./.devcontainer/bin/agent-merge-to-agent  /usr/local/bin/agent-merge-to-agent
+COPY ./.devcontainer/bin/agent-open-pr         /usr/local/bin/agent-open-pr
+RUN sed -i 's/\r$//' \
+      /usr/local/share/agent-sandbox/postCreateCommand.sh \
+      /usr/local/share/agent-sandbox/entrypoint.sh \
+      /usr/local/share/agent-sandbox/sync-onec-infra-hosts.sh \
+      /usr/local/share/agent-sandbox/gh-auth-bootstrap.sh \
+      /usr/local/share/agent-sandbox/cli-agents/claude/bootstrap.sh \
+      /usr/local/share/agent-sandbox/cli-agents/codex/bootstrap.sh \
+      /usr/local/share/agent-sandbox/cli-agents/gemini/bootstrap.sh \
+      /usr/local/share/agent-sandbox/cli-agents/claude/tools/claude-safe.sh \
+      /usr/local/share/agent-sandbox/cli-agents/claude/tools/statusline.js \
+      /usr/local/bin/agent-new-branch \
+      /usr/local/bin/agent-task-branch \
+      /usr/local/bin/agent-merge-to-agent \
+      /usr/local/bin/agent-open-pr \
+  && chmod 0555 \
+      /usr/local/bin/agent-new-branch \
+      /usr/local/bin/agent-task-branch \
+      /usr/local/bin/agent-merge-to-agent \
+      /usr/local/bin/agent-open-pr \
+  && chmod +x \
+      /usr/local/share/agent-sandbox/postCreateCommand.sh \
+      /usr/local/share/agent-sandbox/entrypoint.sh \
+      /usr/local/share/agent-sandbox/sync-onec-infra-hosts.sh \
+      /usr/local/share/agent-sandbox/gh-auth-bootstrap.sh \
+      /usr/local/share/agent-sandbox/cli-agents/claude/bootstrap.sh \
+      /usr/local/share/agent-sandbox/cli-agents/codex/bootstrap.sh \
+      /usr/local/share/agent-sandbox/cli-agents/gemini/bootstrap.sh \
+      /usr/local/share/agent-sandbox/cli-agents/claude/tools/claude-safe.sh
 
 ENTRYPOINT ["/usr/local/share/agent-sandbox/entrypoint.sh"]
 USER root

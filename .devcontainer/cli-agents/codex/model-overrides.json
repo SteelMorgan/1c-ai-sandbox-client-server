@@ -1,0 +1,77 @@
+{
+  "ag/gemini-3.1-pro-high": {
+    "display_name": "ag/gemini-3.1-pro-high",
+    "description": "Gemini 3.1 Pro (high reasoning)",
+    "default_reasoning_level": "medium",
+    "supported_reasoning_levels": [
+      { "effort": "medium", "description": "Default reasoning" }
+    ],
+    "shell_type": "shell_command",
+    "visibility": "list",
+    "supported_in_api": true,
+    "priority": 20,
+    "upgrade": null,
+    "base_instructions": "You are Codex, based on GPT-5. You are running as a coding agent in the Codex CLI on a user's computer.",
+    "model_messages": null,
+    "supports_reasoning_summaries": false,
+    "support_verbosity": false,
+    "default_verbosity": null,
+    "apply_patch_tool_type": null,
+    "truncation_policy": { "mode": "tokens", "limit": 10000 },
+    "supports_parallel_tool_calls": false,
+    "context_window": 200000,
+    "experimental_supported_tools": [],
+    "input_modalities": ["text", "image"],
+    "prefer_websockets": false
+  },
+  "ag/gemini-3.1-pro-low": {
+    "display_name": "ag/gemini-3.1-pro-low",
+    "description": "Gemini 3.1 Pro (low reasoning)",
+    "default_reasoning_level": "medium",
+    "supported_reasoning_levels": [
+      { "effort": "medium", "description": "Default reasoning" }
+    ],
+    "shell_type": "shell_command",
+    "visibility": "list",
+    "supported_in_api": true,
+    "priority": 21,
+    "upgrade": null,
+    "base_instructions": "You are Codex, based on GPT-5. You are running as a coding agent in the Codex CLI on a user's computer.",
+    "model_messages": null,
+    "supports_reasoning_summaries": false,
+    "support_verbosity": false,
+    "default_verbosity": null,
+    "apply_patch_tool_type": null,
+    "truncation_policy": { "mode": "tokens", "limit": 10000 },
+    "supports_parallel_tool_calls": false,
+    "context_window": 200000,
+    "experimental_supported_tools": [],
+    "input_modalities": ["text", "image"],
+    "prefer_websockets": false
+  },
+  "ag/gemini-3-flash": {
+    "display_name": "ag/gemini-3-flash",
+    "description": "Gemini 3 Flash",
+    "default_reasoning_level": "medium",
+    "supported_reasoning_levels": [
+      { "effort": "medium", "description": "Default reasoning" }
+    ],
+    "shell_type": "shell_command",
+    "visibility": "list",
+    "supported_in_api": true,
+    "priority": 22,
+    "upgrade": null,
+    "base_instructions": "You are Codex, based on GPT-5. You are running as a coding agent in the Codex CLI on a user's computer.",
+    "model_messages": null,
+    "supports_reasoning_summaries": false,
+    "support_verbosity": false,
+    "default_verbosity": null,
+    "apply_patch_tool_type": null,
+    "truncation_policy": { "mode": "tokens", "limit": 10000 },
+    "supports_parallel_tool_calls": false,
+    "context_window": 200000,
+    "experimental_supported_tools": [],
+    "input_modalities": ["text", "image"],
+    "prefer_websockets": false
+  }
+}

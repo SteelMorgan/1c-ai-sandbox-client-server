@@ -37,8 +37,8 @@ services:
       - agent-work-sandbox-1c:/workspaces/work
       # Persist licenses across rebuilds
       - onec-licenses:/var/1C/licenses
-      # Persist GitHub CLI auth between container recreates/rebuilds.
-      - gh-config-1c:/home/vscode/.config/gh
+      # Persist entire vscode home across rebuilds (CLI configs, sessions, history, gh auth, etc.)
+      - agent-home-1c:/home/vscode
       # Docker-outside-of-Docker (DoD): give the sandbox access to the host Docker daemon.
       # WARNING: access to docker.sock is effectively root-equivalent on the Docker host.
       - /var/run/docker.sock:/var/run/docker.sock
@@ -71,7 +71,7 @@ volumes:
   agent-work-sandbox-1c:
     external: true
   onec-licenses:
-  gh-config-1c:
+  agent-home-1c:
 
 networks:
   infra:
