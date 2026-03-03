@@ -27,6 +27,9 @@ if command -v git >/dev/null 2>&1; then
   git config --global --add safe.directory "*" >/dev/null 2>&1 || true
 fi
 
+# Python dependencies (idempotent, no rebuild required)
+pip3 install --quiet --break-system-packages "python-xlib==0.33" "Pillow" "tiktoken" 2>/dev/null || pip3 install --quiet "python-xlib==0.33" "Pillow" "tiktoken" || true
+
 # GitHub auth bootstrap (idempotent). Uses /run/secrets/github_token when present.
 bash /usr/local/share/agent-sandbox/gh-auth-bootstrap.sh || true
 
