@@ -79,11 +79,24 @@ toml_escape_basic() {
   printf "%s" "${value}"
 }
 
-if [[ -z "${BASE_URL}" ]]; then
+if [[ "${CUSTOM_CODEX_ENABLED:-0}" != "1" ]]; then
+  echo "[codex-bootstrap] CUSTOM_CODEX_ENABLED is not 1 — skipping custom backend config; wrapper/aliases still applied."
+  BASE_URL=""
+elif [[ -z "${BASE_URL}" ]]; then
   echo "[codex-bootstrap] OPENAI_BASE_URL is not set — skipping Codex config." >&2
-  exit 0
+  BASE_URL=""
 fi
 
+ENABLE_CUSTOM_CODEX=1
+if [[ -z "${BASE_URL}" ]]; then
+  ENABLE_CUSTOM_CODEX=0
+fi
+
+if [[ "${ENABLE_CUSTOM_CODEX}" == "1" ]]; then
+  echo "[codex-bootstrap] CUSTOM_CODEX_ENABLED=1 — applying custom backend config."
+fi
+
+if [[ "${ENABLE_CUSTOM_CODEX}" == "1" ]]; then
 MODELS=()
 if [[ -n "${MODELS_CSV}" ]]; then
   IFS=',' read -r -a RAW_MODELS <<< "${MODELS_CSV}"
@@ -101,15 +114,13 @@ fi
 
 if [[ -z "${MODEL}" ]]; then
   echo "[codex-bootstrap] Neither CODEX_MODEL nor CODEX_MODELS is set — skipping Codex config." >&2
-  exit 0
-fi
-
-CATALOG_MODELS=()
-if [[ ${#MODELS[@]} -gt 0 ]]; then
-  CATALOG_MODELS=("${MODELS[@]}")
 else
-  CATALOG_MODELS=("${MODEL}")
-fi
+  CATALOG_MODELS=()
+  if [[ ${#MODELS[@]} -gt 0 ]]; then
+    CATALOG_MODELS=("${MODELS[@]}")
+  else
+    CATALOG_MODELS=("${MODEL}")
+  fi
 
 PYTHON_BIN="$(command -v python3 || command -v python || true)"
 
@@ -387,6 +398,8 @@ if [[ ${#MODELS[@]} -gt 0 ]]; then
   echo "[codex-bootstrap] profiles generated: ${MODELS[*]}"
 fi
 echo "[codex-bootstrap] ~/.codex/.env written (key=${PROVIDER_ENV_KEY})"
+fi
+fi
 
 WRAPPER_DIR="${HOME}/bin"
 CODEX_WRAPPER="${WRAPPER_DIR}/codex-safe.sh"

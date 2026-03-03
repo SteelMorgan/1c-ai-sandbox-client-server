@@ -13,6 +13,7 @@
     "LC_ALL": "ru_RU.UTF-8",
     "LC_CTYPE": "ru_RU.UTF-8"
   },
+  "forwardPorts": [6080, 5900],
   "features": {
     "ghcr.io/devcontainers/features/node:1": { "version": "22" }
   }

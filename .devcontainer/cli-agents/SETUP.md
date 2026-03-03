@@ -143,7 +143,7 @@ RUN npm install -g @google/gemini-cli
 
 ```bash
 # Codex bootstrap
-if [[ "${CUSTOM_OPENAI_ENABLED:-0}" == "1" ]]; then
+if [[ "${CUSTOM_CODEX_ENABLED:-0}" == "1" ]]; then
   if [[ -f "/workspaces/work/.devcontainer/cli-agents/codex/bootstrap.sh" ]]; then
     bash /workspaces/work/.devcontainer/cli-agents/codex/bootstrap.sh \
       || bash /usr/local/share/agent-sandbox/cli-agents/codex/bootstrap.sh || true
@@ -153,7 +153,7 @@ if [[ "${CUSTOM_OPENAI_ENABLED:-0}" == "1" ]]; then
 fi
 
 # Gemini bootstrap
-if [[ "${CUSTOM_OPENAI_ENABLED:-0}" == "1" ]]; then
+if [[ "${CUSTOM_GEMINI_ENABLED:-0}" == "1" ]]; then
   if [[ -f "/workspaces/work/.devcontainer/cli-agents/gemini/bootstrap.sh" ]]; then
     bash /workspaces/work/.devcontainer/cli-agents/gemini/bootstrap.sh \
       || bash /usr/local/share/agent-sandbox/cli-agents/gemini/bootstrap.sh || true
@@ -176,8 +176,10 @@ local statusline_js="/usr/local/share/agent-sandbox/cli-agents/claude/tools/stat
 Добавить в `.devcontainer/.env` целевого проекта:
 
 ```ini
-## --- Общие настройки кастомного бэкенда ---
-CUSTOM_OPENAI_ENABLED=1
+## --- Флаги кастомного бэкенда по CLI ---
+CUSTOM_CLAUDE_ENABLED=1
+CUSTOM_CODEX_ENABLED=1
+CUSTOM_GEMINI_ENABLED=1
 OPENAI_BASE_URL=https://ai.gbig.holdings/v1   # ← URL своего бэкенда
 
 ## --- Claude Code ---

@@ -95,6 +95,58 @@ start_xvfb() {
 
 start_xvfb
 
+start_vnc_bridge() {
+  # Bridge Xvfb (:99) to browser via noVNC.
+  # - x11vnc exposes VNC on 5900
+  # - websockify serves noVNC UI on 6080 and proxies to 5900
+  local vnc_log="/tmp/x11vnc.log"
+  local ws_log="/tmp/websockify.log"
+
+  if ! command -v x11vnc >/dev/null 2>&1; then
+    echo "WARNING: x11vnc is not installed; skipping VNC bridge startup."
+    return 0
+  fi
+
+  if ! command -v websockify >/dev/null 2>&1; then
+    echo "WARNING: websockify is not installed; skipping noVNC bridge startup."
+    return 0
+  fi
+
+  # Restart bridge processes on each container start (idempotent).
+  pkill x11vnc >/dev/null 2>&1 || true
+  pkill -f '/usr/bin/websockify' >/dev/null 2>&1 || true
+
+  nohup x11vnc \
+    -display "${DISPLAY}" \
+    -rfbport 5900 \
+    -forever \
+    -shared \
+    -nopw \
+    -noxdamage \
+    -noshm \
+    >"${vnc_log}" 2>&1 &
+
+  # Debian/Ubuntu websockify script has python shebang; run via python3 explicitly for stability.
+  nohup /usr/bin/python3 /usr/bin/websockify \
+    --web=/usr/share/novnc \
+    6080 \
+    127.0.0.1:5900 \
+    >"${ws_log}" 2>&1 &
+}
+
+start_vnc_bridge
+
+prepare_fontconfig_cache() {
+  # 1C client checks fonts in user session context.
+  # Ensure user fontconfig cache exists and is refreshed to avoid false "Core Fonts missing" errors.
+  if id -u vscode >/dev/null 2>&1; then
+    su -s /bin/bash vscode -c 'mkdir -p /home/vscode/.cache/fontconfig'
+    su -s /bin/bash vscode -c 'fc-cache -fv >/tmp/fc-cache-vscode.log 2>&1' || true
+  fi
+}
+
+prepare_fontconfig_cache
+
 if [ -d "/workspaces/work" ]; then
   chmod 0777 /workspaces/work || true
   # Also ensure common subdirs are writable (best-effort)

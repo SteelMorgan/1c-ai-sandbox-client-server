@@ -35,12 +35,16 @@ if [[ -f "${SECRET_FILE}" && -s "${SECRET_FILE}" ]]; then
   echo "[gemini-bootstrap] API key read from ${SECRET_FILE}"
 fi
 
-if [[ -z "${BASE_URL}" ]]; then
+ENABLE_CUSTOM_GEMINI=1
+if [[ "${CUSTOM_GEMINI_ENABLED:-0}" != "1" ]]; then
+  echo "[gemini-bootstrap] CUSTOM_GEMINI_ENABLED is not 1 — skipping custom backend config; wrapper/aliases still applied."
+  ENABLE_CUSTOM_GEMINI=0
+elif [[ -z "${BASE_URL}" ]]; then
   echo "[gemini-bootstrap] OPENAI_BASE_URL is not set — skipping Gemini CLI config." >&2
-  exit 0
+  ENABLE_CUSTOM_GEMINI=0
 fi
 
-if [[ -z "${API_KEY}" ]]; then
+if [[ "${ENABLE_CUSTOM_GEMINI}" == "1" && -z "${API_KEY}" ]]; then
   echo "[gemini-bootstrap] WARNING: /run/secrets/cc_api_key is empty or missing" >&2
 fi
 
@@ -54,6 +58,9 @@ fi
 #   -> append /api -> https://ai.gbig.holdings/api
 # SDK then constructs: https://ai.gbig.holdings/api/v1beta/models/{model}:generateContent (correct)
 GEMINI_BASE_URL="${BASE_URL%/v1}/api"
+
+if [[ "${ENABLE_CUSTOM_GEMINI}" == "1" ]]; then
+  echo "[gemini-bootstrap] CUSTOM_GEMINI_ENABLED=1 — applying custom backend config."
 
 # ---------------------------------------------------------------------------
 # ~/.gemini/settings.json
@@ -133,6 +140,7 @@ printf "GOOGLE_GEMINI_BASE_URL=%s\n" "${GEMINI_BASE_URL}" >> "${GEMINI_DIR}/.env
 chmod 0600 "${GEMINI_DIR}/.env"
 
 echo "[gemini-bootstrap] ~/.gemini/.env written (GEMINI_API_KEY=***, GOOGLE_GEMINI_BASE_URL=${GEMINI_BASE_URL})"
+fi
 
 # ---------------------------------------------------------------------------
 # ~/bin/gemini-safe.sh  — wrapper script

@@ -52,28 +52,25 @@ run_bootstrap() {
 # Claude Code bootstrap (idempotent).
 # Sets up custom backend, statusLine, cc alias / symlink.
 # ---------------------------------------------------------------------------
-if [[ "${CUSTOM_OPENAI_ENABLED:-0}" == "1" ]]; then
-  run_bootstrap cli-agents/claude/bootstrap.sh
-else
-  echo "[postCreate] CUSTOM_OPENAI_ENABLED is not 1 — skipping Claude custom backend bootstrap."
+run_bootstrap cli-agents/claude/bootstrap.sh
+if [[ "${CUSTOM_CLAUDE_ENABLED:-0}" != "1" ]]; then
+  echo "[postCreate] CUSTOM_CLAUDE_ENABLED is not 1 — Claude wrapper/aliases stay enabled, custom backend setup skipped."
 fi
 
 # ---------------------------------------------------------------------------
 # Codex bootstrap (idempotent). Uses /run/secrets/cc_api_key when present.
 # ---------------------------------------------------------------------------
-if [[ "${CUSTOM_OPENAI_ENABLED:-0}" == "1" ]]; then
-  run_bootstrap cli-agents/codex/bootstrap.sh
-else
-  echo "[postCreate] CUSTOM_OPENAI_ENABLED is not 1 — skipping Codex custom backend bootstrap."
+run_bootstrap cli-agents/codex/bootstrap.sh
+if [[ "${CUSTOM_CODEX_ENABLED:-0}" != "1" ]]; then
+  echo "[postCreate] CUSTOM_CODEX_ENABLED is not 1 — Codex wrapper/aliases stay enabled, custom backend setup skipped."
 fi
 
 # ---------------------------------------------------------------------------
 # Gemini CLI bootstrap (idempotent). Uses /run/secrets/cc_api_key when present.
 # ---------------------------------------------------------------------------
-if [[ "${CUSTOM_OPENAI_ENABLED:-0}" == "1" ]]; then
-  run_bootstrap cli-agents/gemini/bootstrap.sh
-else
-  echo "[postCreate] CUSTOM_OPENAI_ENABLED is not 1 — skipping Gemini CLI bootstrap."
+run_bootstrap cli-agents/gemini/bootstrap.sh
+if [[ "${CUSTOM_GEMINI_ENABLED:-0}" != "1" ]]; then
+  echo "[postCreate] CUSTOM_GEMINI_ENABLED is not 1 — Gemini wrapper/aliases stay enabled, custom backend setup skipped."
 fi
 
 # Global pre-push hook is installed by entrypoint (root-owned, locked-down).

@@ -5,16 +5,13 @@ services:
     build:
       context: ..
       dockerfile: .devcontainer/Dockerfile
-      args:
-        # Must match the version required by the runner (exact 4-part version).
-        ONEC_VERSION: ${ONEC_VERSION}
+      # ONEC_VERSION is resolved inside Dockerfile from infra/vm/.env when build arg is not passed.
       secrets:
         - onec_username
         - onec_password
         - dev_login
         - dev_password
     environment:
-      ONEC_VERSION: ${ONEC_VERSION}
       # Some 1C tools require an X server even in "batch" mode.
       # We run Xvfb on :99 in entrypoint to satisfy this requirement.
       DISPLAY: ":99"
@@ -32,6 +29,10 @@ services:
       - dev_password
       - github_token
       - cc_api_key
+    ports:
+      # noVNC (browser) and VNC access to Xvfb :99
+      - "6080:6080"
+      - "5900:5900"
     volumes:
       # Separate workspace volume for 1C sandbox
       - agent-work-sandbox-1c:/workspaces/work

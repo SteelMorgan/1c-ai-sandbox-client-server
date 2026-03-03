@@ -98,6 +98,7 @@ RUN set -eux; \
 # 1C runtime deps + headless display
 RUN apt-get update \
   -o Acquire::ForceIPv4=true -o Acquire::Retries=3 \
+  && echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | debconf-set-selections \
   && apt-get install -y --no-install-recommends \
     locales \
     net-tools \
@@ -106,6 +107,9 @@ RUN apt-get update \
     openjdk-17-jdk \
     gradle \
     xvfb \
+    x11vnc \
+    novnc \
+    websockify \
     dbus-x11 \
     xauth \
     libglib2.0-0 \
@@ -128,6 +132,8 @@ RUN apt-get update \
     libodbc2 \
     fonts-dejavu \
     fonts-liberation \
+    ttf-mscorefonts-installer \
+  && fc-cache -f \
   && locale-gen ru_RU.UTF-8 \
   && update-locale LANG=ru_RU.UTF-8 LC_ALL=ru_RU.UTF-8 LC_CTYPE=ru_RU.UTF-8 LANGUAGE=ru_RU:ru \
   && rm -rf /var/lib/apt/lists/*
