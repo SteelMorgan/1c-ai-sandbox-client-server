@@ -2,7 +2,7 @@
 # Configures Gemini CLI for the current user.
 #
 # Reads non-secret settings from env vars (injected via .devcontainer/.env):
-#   OPENAI_BASE_URL   — base URL of the OpenAI-compatible / Gemini-compatible server
+#   _OPENAI_BASE_URL  — base URL of the OpenAI-compatible / Gemini-compatible server
 #   GEMINI_MODEL      — default Gemini model name (e.g. ag/gemini-3.1-pro-high)
 #   GEMINI_MODEL_FLASH — fast/cheap model (e.g. ag/gemini-3-flash)
 #   GEMINI_MODEL_PRO_LOW — pro-low tier model (e.g. ag/gemini-3.1-pro-low)
@@ -22,7 +22,7 @@ set -euo pipefail
 GEMINI_DIR="${HOME}/.gemini"
 mkdir -p "${GEMINI_DIR}"
 
-BASE_URL="${OPENAI_BASE_URL:-}"
+BASE_URL="${_OPENAI_BASE_URL:-}"
 MODEL="${GEMINI_MODEL:-ag/gemini-3.1-pro-high}"
 MODEL_FLASH="${GEMINI_MODEL_FLASH:-ag/gemini-3-flash}"
 MODEL_PRO_LOW="${GEMINI_MODEL_PRO_LOW:-ag/gemini-3.1-pro-low}"
@@ -38,7 +38,7 @@ ENABLE_CUSTOM_GEMINI=1
 if [[ "${CUSTOM_GEMINI_ENABLED:-0}" != "1" ]]; then
   ENABLE_CUSTOM_GEMINI=0
 elif [[ -z "${BASE_URL}" ]]; then
-  echo "[gemini-bootstrap] OPENAI_BASE_URL is not set — skipping Gemini CLI config." >&2
+  echo "[gemini-bootstrap] _OPENAI_BASE_URL is not set — skipping Gemini CLI config." >&2
   ENABLE_CUSTOM_GEMINI=0
 fi
 
@@ -51,7 +51,7 @@ fi
 # (Next.js App Router: src/app/api/v1beta/models/[...path]).
 # next.config.mjs rewrites /v1/* -> /api/v1/* but has NO rewrite for /v1beta/*.
 # So we must point the SDK at the /api prefix explicitly:
-#   OPENAI_BASE_URL = https://ai.gbig.holdings/v1
+#   _OPENAI_BASE_URL = https://ai.gbig.holdings/v1
 #   -> strip /v1  -> https://ai.gbig.holdings
 #   -> append /api -> https://ai.gbig.holdings/api
 # SDK then constructs: https://ai.gbig.holdings/api/v1beta/models/{model}:generateContent (correct)

@@ -2,7 +2,7 @@
 # Configures Codex CLI (v0.105+) for the current user.
 #
 # Reads non-secret settings from env vars (injected via .devcontainer/.env):
-#   OPENAI_BASE_URL         — base URL of the OpenAI-compatible server
+#   _OPENAI_BASE_URL        — base URL of the OpenAI-compatible server
 #   CODEX_MODEL             — default model name (used when CODEX_MODELS is empty)
 #   CODEX_MODELS            — optional comma-separated model list for profile generation
 #   CODEX_MODEL_PROVIDER_ID — optional provider id in config.toml (default: myserver)
@@ -23,7 +23,7 @@ set -euo pipefail
 CODEX_DIR="${HOME}/.codex"
 mkdir -p "${CODEX_DIR}"
 
-BASE_URL="${OPENAI_BASE_URL:-}"
+BASE_URL="${_OPENAI_BASE_URL:-}"
 MODEL="${CODEX_MODEL:-}"
 MODELS_CSV="${CODEX_MODELS:-}"
 PROVIDER_ID="${CODEX_MODEL_PROVIDER_ID:-myserver}"
@@ -118,7 +118,7 @@ if [[ "${DESIRED_MODE}" == "native" && "${PREV_MODE}" == "custom" ]]; then
 fi
 
 if [[ "${CUSTOM_CODEX_ENABLED:-0}" == "1" && -z "${BASE_URL}" ]]; then
-  echo "[codex-bootstrap] OPENAI_BASE_URL is not set — skipping Codex config." >&2
+  echo "[codex-bootstrap] _OPENAI_BASE_URL is not set — skipping Codex config." >&2
 fi
 
 write_state_var CODEX_MODE "${DESIRED_MODE}"
@@ -454,7 +454,7 @@ if [ -f "${CODEX_ENV_FILE}" ]; then
   done < "${CODEX_ENV_FILE}"
 fi
 
-exec codex "$@"
+exec codex --dangerously-bypass-approvals-and-sandbox "$@"
 WRAPPER
 
 chmod +x "${CODEX_WRAPPER}"

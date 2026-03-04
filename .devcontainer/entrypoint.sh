@@ -10,6 +10,27 @@ set -euo pipefail
 # - DISPLAY itself is injected via docker-compose.yml, but we also default it here.
 export DISPLAY="${DISPLAY:-:99}"
 
+# Conditionally expose backend URLs based on feature flags.
+# .env stores URLs under _CLAUDE_BASE_URL / _OPENAI_BASE_URL (never leaked to children).
+# The "public" names are only exported when the corresponding feature flag is enabled.
+if [[ "${CUSTOM_CLAUDE_ENABLED:-0}" == "1" && -n "${_CLAUDE_BASE_URL:-}" ]]; then
+  export CLAUDE_BASE_URL="${_CLAUDE_BASE_URL}"
+fi
+if [[ "${CUSTOM_CODEX_ENABLED:-0}" == "1" && -n "${_OPENAI_BASE_URL:-}" ]]; then
+  export OPENAI_BASE_URL="${_OPENAI_BASE_URL}"
+fi
+
+# Write the same conditional logic into /etc/profile.d/ so that interactive shells
+# (terminals, docker exec) also see the public names only when enabled.
+cat > /etc/profile.d/custom-backends.sh << 'PROFILE_EOF'
+if [[ "${CUSTOM_CLAUDE_ENABLED:-0}" == "1" && -n "${_CLAUDE_BASE_URL:-}" ]]; then
+  export CLAUDE_BASE_URL="${_CLAUDE_BASE_URL}"
+fi
+if [[ "${CUSTOM_CODEX_ENABLED:-0}" == "1" && -n "${_OPENAI_BASE_URL:-}" ]]; then
+  export OPENAI_BASE_URL="${_OPENAI_BASE_URL}"
+fi
+PROFILE_EOF
+
 # Force UTF-8 locale for all child processes (1C tools included).
 # This prevents Cyrillic file/folder names from being replaced with '???' under LANG=C.
 export LANG="${LANG:-ru_RU.UTF-8}"

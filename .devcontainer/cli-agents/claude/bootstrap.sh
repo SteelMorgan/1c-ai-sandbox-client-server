@@ -2,7 +2,7 @@
 # Configures Claude Code for the current user.
 #
 # Reads non-secret settings from env vars (injected via .devcontainer/.env):
-#   OPENAI_BASE_URL                    — base URL of the OpenAI-compatible server
+#   _CLAUDE_BASE_URL                   — base URL of the Claude-compatible server
 #   CC_HELPER_VALIDATE_MODE            — validate mode (anthropic / openai)
 #   CC_HELPER_MODEL                    — model alias (sonnet / opus / haiku)
 #   CC_HELPER_ALIAS_OPUS/SONNET/HAIKU  — model name overrides
@@ -49,7 +49,7 @@ if [[ -f "${SECRET_FILE}" && -s "${SECRET_FILE}" ]]; then
   API_KEY="$(cat "${SECRET_FILE}")"
 fi
 
-BASE_URL="${OPENAI_BASE_URL:-}"
+BASE_URL="${_CLAUDE_BASE_URL:-}"
 
 STATE_DIR="${HOME}/.agent-sandbox"
 STATE_FILE="${STATE_DIR}/bootstrap-state.env"
@@ -86,7 +86,7 @@ if [[ "${DESIRED_MODE}" == "native" ]]; then
 fi
 
 if [[ "${CUSTOM_CLAUDE_ENABLED:-0}" == "1" && -z "${BASE_URL}" ]]; then
-  echo "[claude-bootstrap] OPENAI_BASE_URL is not set — skipping Claude custom backend config." >&2
+  echo "[claude-bootstrap] _CLAUDE_BASE_URL is not set — skipping Claude custom backend config." >&2
   # Still set up wrapper and alias even without custom backend
 fi
 
