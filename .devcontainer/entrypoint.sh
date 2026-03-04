@@ -167,13 +167,25 @@ fi
 # WARNING: access to docker.sock is effectively root-equivalent on the Docker host.
 if [ -S "/var/run/docker.sock" ]; then
   sock_gid="$(stat -c %g /var/run/docker.sock 2>/dev/null || echo '')"
-  if [[ -n "$sock_gid" ]]; then
+
+  # Preferred path: non-root gid from host socket.
+  if [[ -n "$sock_gid" && "$sock_gid" != "0" ]]; then
     if ! getent group dockersock >/dev/null 2>&1; then
       groupadd -g "$sock_gid" dockersock 2>/dev/null || true
     fi
-    usermod -aG "$sock_gid" vscode 2>/dev/null || usermod -aG dockersock vscode 2>/dev/null || true
+    usermod -aG dockersock vscode 2>/dev/null || usermod -aG "$sock_gid" vscode 2>/dev/null || true
     chgrp "$sock_gid" /var/run/docker.sock 2>/dev/null || chgrp dockersock /var/run/docker.sock 2>/dev/null || true
     chmod 0660 /var/run/docker.sock 2>/dev/null || true
+  else
+    # Avoid adding vscode to root group when socket gid is 0.
+    # Try conventional docker group if present; otherwise fall back to permissive mode.
+    if getent group docker >/dev/null 2>&1; then
+      usermod -aG docker vscode 2>/dev/null || true
+      chgrp docker /var/run/docker.sock 2>/dev/null || true
+      chmod 0660 /var/run/docker.sock 2>/dev/null || true
+    else
+      chmod 0666 /var/run/docker.sock 2>/dev/null || true
+    fi
   fi
 fi
 
