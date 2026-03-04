@@ -36,33 +36,38 @@ MODEL_OVERRIDES_FILE="${CODEX_MODEL_OVERRIDES_FILE:-/workspaces/work/.devcontain
 GEMINI_PROMPT_URL="${CODEX_GEMINI_PROMPT_URL:-https://raw.githubusercontent.com/openai/codex/main/codex-rs/core/prompt_with_apply_patch_instructions.md}"
 GEMINI_PROMPT_FILE="$(mktemp /tmp/codex-gemini-prompt.XXXXXX.md)"
 
-# Download the prompt from the cloud
-if curl -fsSL --max-time 10 "${GEMINI_PROMPT_URL}" -o "${GEMINI_PROMPT_FILE}" 2>/dev/null; then
-  :
+if [[ "${CUSTOM_CODEX_ENABLED:-0}" == "1" ]]; then
+  # Download the prompt from the cloud
+  if curl -fsSL --max-time 10 "${GEMINI_PROMPT_URL}" -o "${GEMINI_PROMPT_FILE}" 2>/dev/null; then
+    :
+  else
+    echo "[codex-bootstrap] WARNING: could not download Gemini prompt, Gemini models will run without base_instructions" >&2
+    rm -f "${GEMINI_PROMPT_FILE}"
+    GEMINI_PROMPT_FILE=""
+  fi
+
+  if [[ ! -f "${MODEL_MAP_FILE}" && -f "/usr/local/share/agent-sandbox/codex-model-map.json" ]]; then
+    MODEL_MAP_FILE="/usr/local/share/agent-sandbox/codex-model-map.json"
+  fi
+
+  if [[ ! -f "${MODEL_OVERRIDES_FILE}" && -f "/usr/local/share/agent-sandbox/codex-model-overrides.json" ]]; then
+    MODEL_OVERRIDES_FILE="/usr/local/share/agent-sandbox/codex-model-overrides.json"
+  fi
+
+  if [[ -f "${MODEL_MAP_FILE}" ]]; then
+    :
+  else
+    echo "[codex-bootstrap] WARNING: model map file not found: ${MODEL_MAP_FILE}" >&2
+  fi
+
+  if [[ -f "${MODEL_OVERRIDES_FILE}" ]]; then
+    :
+  else
+    :
+  fi
 else
-  echo "[codex-bootstrap] WARNING: could not download Gemini prompt, Gemini models will run without base_instructions" >&2
-  rm -f "${GEMINI_PROMPT_FILE}"
+  rm -f "${GEMINI_PROMPT_FILE}" 2>/dev/null || true
   GEMINI_PROMPT_FILE=""
-fi
-
-if [[ ! -f "${MODEL_MAP_FILE}" && -f "/usr/local/share/agent-sandbox/codex-model-map.json" ]]; then
-  MODEL_MAP_FILE="/usr/local/share/agent-sandbox/codex-model-map.json"
-fi
-
-if [[ ! -f "${MODEL_OVERRIDES_FILE}" && -f "/usr/local/share/agent-sandbox/codex-model-overrides.json" ]]; then
-  MODEL_OVERRIDES_FILE="/usr/local/share/agent-sandbox/codex-model-overrides.json"
-fi
-
-if [[ -f "${MODEL_MAP_FILE}" ]]; then
-  :
-else
-  echo "[codex-bootstrap] WARNING: model map file not found: ${MODEL_MAP_FILE}" >&2
-fi
-
-if [[ -f "${MODEL_OVERRIDES_FILE}" ]]; then
-  :
-else
-  :
 fi
 
 trim() {
@@ -435,6 +440,9 @@ if ! command -v codex >/dev/null 2>&1; then
   echo "codex command not found in PATH" >&2
   exit 127
 fi
+
+# Prevent container-level env from forcing Codex to a custom backend in native mode.
+unset OPENAI_BASE_URL OPENAI_API_KEY
 
 CODEX_ENV_FILE="${HOME}/.codex/.env"
 if [ -f "${CODEX_ENV_FILE}" ]; then
