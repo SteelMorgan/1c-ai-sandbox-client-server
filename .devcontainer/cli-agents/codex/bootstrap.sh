@@ -79,23 +79,46 @@ toml_escape_basic() {
   printf "%s" "${value}"
 }
 
-if [[ "${CUSTOM_CODEX_ENABLED:-0}" != "1" ]]; then
-  # Explicitly clear previously managed custom backend/auth state.
-  rm -f "${CODEX_DIR}/.env" "${CODEX_DIR}/config.toml" "${CODEX_DIR}/config.yaml" "${CODEX_DIR}/model-catalog.json" "${CODEX_DIR}/models.list" "${CODEX_DIR}/cloud-models.json" 2>/dev/null || true
-  if command -v codex >/dev/null 2>&1; then
-    codex logout >/dev/null 2>&1 || true
+STATE_DIR="${HOME}/.agent-sandbox"
+STATE_FILE="${STATE_DIR}/bootstrap-state.env"
+mkdir -p "${STATE_DIR}"
+
+read_state_var() {
+  local key="$1"
+  [[ -f "${STATE_FILE}" ]] || return 0
+  awk -F= -v k="$key" '$1==k{print substr($0, index($0, "=")+1)}' "${STATE_FILE}" | tail -n 1
+}
+
+write_state_var() {
+  local key="$1"
+  local value="$2"
+  local tmp
+  tmp="$(mktemp)"
+  if [[ -f "${STATE_FILE}" ]]; then
+    awk -F= -v k="$key" '$1!=k{print}' "${STATE_FILE}" > "${tmp}"
   fi
-  BASE_URL=""
-elif [[ -z "${BASE_URL}" ]]; then
-  # Missing base URL means custom backend cannot be applied; clear stale managed state.
-  rm -f "${CODEX_DIR}/.env" "${CODEX_DIR}/config.toml" "${CODEX_DIR}/config.yaml" "${CODEX_DIR}/model-catalog.json" "${CODEX_DIR}/models.list" "${CODEX_DIR}/cloud-models.json" 2>/dev/null || true
-  if command -v codex >/dev/null 2>&1; then
-    codex logout >/dev/null 2>&1 || true
-  fi
-  echo "[codex-bootstrap] OPENAI_BASE_URL is not set — skipping Codex config." >&2
-  BASE_URL=""
+  printf "%s=%s\n" "$key" "$value" >> "${tmp}"
+  mv -f "${tmp}" "${STATE_FILE}"
+}
+
+PREV_MODE="$(read_state_var CODEX_MODE || true)"
+DESIRED_MODE="native"
+if [[ "${CUSTOM_CODEX_ENABLED:-0}" == "1" && -n "${BASE_URL}" ]]; then
+  DESIRED_MODE="custom"
 fi
 
+if [[ "${DESIRED_MODE}" == "native" && "${PREV_MODE}" == "custom" ]]; then
+  # Explicitly clear previously managed custom backend/auth state on mode switch only.
+  rm -f "${CODEX_DIR}/.env" "${CODEX_DIR}/config.toml" "${CODEX_DIR}/config.yaml" "${CODEX_DIR}/model-catalog.json" "${CODEX_DIR}/models.list" "${CODEX_DIR}/cloud-models.json" 2>/dev/null || true
+fi
+
+if [[ "${CUSTOM_CODEX_ENABLED:-0}" == "1" && -z "${BASE_URL}" ]]; then
+  echo "[codex-bootstrap] OPENAI_BASE_URL is not set — skipping Codex config." >&2
+fi
+
+write_state_var CODEX_MODE "${DESIRED_MODE}"
+
+if [[ "${DESIRED_MODE}" == "custom" ]]; then
 ENABLE_CUSTOM_CODEX=1
 if [[ -z "${BASE_URL}" ]]; then
   ENABLE_CUSTOM_CODEX=0
@@ -396,6 +419,7 @@ fi
 printf "%s=%s\n" "${PROVIDER_ENV_KEY}" "${API_KEY}" > "${CODEX_DIR}/.env"
 chmod 0600 "${CODEX_DIR}/.env"
 
+fi
 fi
 fi
 

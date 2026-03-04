@@ -51,29 +51,51 @@ fi
 
 BASE_URL="${OPENAI_BASE_URL:-}"
 
-if [[ "${CUSTOM_CLAUDE_ENABLED:-0}" != "1" ]]; then
+STATE_DIR="${HOME}/.agent-sandbox"
+STATE_FILE="${STATE_DIR}/bootstrap-state.env"
+mkdir -p "${STATE_DIR}"
+
+read_state_var() {
+  local key="$1"
+  [[ -f "${STATE_FILE}" ]] || return 0
+  awk -F= -v k="$key" '$1==k{print substr($0, index($0, "=")+1)}' "${STATE_FILE}" | tail -n 1
+}
+
+write_state_var() {
+  local key="$1"
+  local value="$2"
+  local tmp
+  tmp="$(mktemp)"
+  if [[ -f "${STATE_FILE}" ]]; then
+    awk -F= -v k="$key" '$1!=k{print}' "${STATE_FILE}" > "${tmp}"
+  fi
+  printf "%s=%s\n" "$key" "$value" >> "${tmp}"
+  mv -f "${tmp}" "${STATE_FILE}"
+}
+
+PREV_MODE="$(read_state_var CLAUDE_MODE || true)"
+DESIRED_MODE="native"
+if [[ "${CUSTOM_CLAUDE_ENABLED:-0}" == "1" && -n "${BASE_URL}" ]]; then
+  DESIRED_MODE="custom"
+fi
+
+if [[ "${DESIRED_MODE}" == "native" && "${PREV_MODE}" == "custom" ]]; then
   if [[ -f "${HELPER_MJS}" ]] && command -v node >/dev/null 2>&1; then
     node "${HELPER_MJS}" unset >/dev/null 2>&1 || echo "[claude-bootstrap] WARNING: failed to unset helper-managed Claude env" >&2
   fi
-  if command -v claude >/dev/null 2>&1; then
-    claude auth logout >/dev/null 2>&1 || true
-  fi
-elif [[ -z "${BASE_URL}" ]]; then
-  if [[ -f "${HELPER_MJS}" ]] && command -v node >/dev/null 2>&1; then
-    node "${HELPER_MJS}" unset >/dev/null 2>&1 || true
-  fi
-  if command -v claude >/dev/null 2>&1; then
-    claude auth logout >/dev/null 2>&1 || true
-  fi
+fi
 
+if [[ "${CUSTOM_CLAUDE_ENABLED:-0}" == "1" && -z "${BASE_URL}" ]]; then
   echo "[claude-bootstrap] OPENAI_BASE_URL is not set — skipping Claude custom backend config." >&2
   # Still set up wrapper and alias even without custom backend
 fi
 
+write_state_var CLAUDE_MODE "${DESIRED_MODE}"
+
 # ---------------------------------------------------------------------------
 # Configure custom backend via helper.mjs (if enabled)
 # ---------------------------------------------------------------------------
-if [[ "${CUSTOM_CLAUDE_ENABLED:-0}" == "1" && -n "${BASE_URL}" ]]; then
+if [[ "${DESIRED_MODE}" == "custom" && -n "${BASE_URL}" ]]; then
   if [[ ! -s "${SECRET_FILE}" ]]; then
     echo "[claude-bootstrap] WARNING: /run/secrets/cc_api_key is empty or missing" >&2
   fi
