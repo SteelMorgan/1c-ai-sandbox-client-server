@@ -47,13 +47,12 @@ API_KEY=""
 SECRET_FILE="/run/secrets/cc_api_key"
 if [[ -f "${SECRET_FILE}" && -s "${SECRET_FILE}" ]]; then
   API_KEY="$(cat "${SECRET_FILE}")"
-  echo "[claude-bootstrap] API key read from ${SECRET_FILE}"
 fi
 
 BASE_URL="${OPENAI_BASE_URL:-}"
 
 if [[ "${CUSTOM_CLAUDE_ENABLED:-0}" != "1" ]]; then
-  echo "[claude-bootstrap] CUSTOM_CLAUDE_ENABLED is not 1 — skipping custom backend config; wrapper/aliases still applied."
+  :
 elif [[ -z "${BASE_URL}" ]]; then
   echo "[claude-bootstrap] OPENAI_BASE_URL is not set — skipping Claude custom backend config." >&2
   # Still set up wrapper and alias even without custom backend
@@ -63,7 +62,6 @@ fi
 # Configure custom backend via helper.mjs (if enabled)
 # ---------------------------------------------------------------------------
 if [[ "${CUSTOM_CLAUDE_ENABLED:-0}" == "1" && -n "${BASE_URL}" ]]; then
-  echo "[claude-bootstrap] CUSTOM_CLAUDE_ENABLED=1 — applying custom backend config."
   if [[ ! -s "${SECRET_FILE}" ]]; then
     echo "[claude-bootstrap] WARNING: /run/secrets/cc_api_key is empty or missing" >&2
   fi

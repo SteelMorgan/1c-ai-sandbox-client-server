@@ -48,7 +48,6 @@ fi
 echo "[INFO] GitHub auth is missing. Logging in to ${host} via token secret..."
 set +x
 gh auth login --hostname "$host" --with-token <"$token_file" >/dev/null
-set -x 2>/dev/null || true
 
 # Configure git to use gh credential helper (HTTPS).
 if command -v git >/dev/null 2>&1; then

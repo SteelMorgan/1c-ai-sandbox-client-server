@@ -38,7 +38,7 @@ GEMINI_PROMPT_FILE="$(mktemp /tmp/codex-gemini-prompt.XXXXXX.md)"
 
 # Download the prompt from the cloud
 if curl -fsSL --max-time 10 "${GEMINI_PROMPT_URL}" -o "${GEMINI_PROMPT_FILE}" 2>/dev/null; then
-  echo "[codex-bootstrap] Gemini prompt downloaded from: ${GEMINI_PROMPT_URL}"
+  :
 else
   echo "[codex-bootstrap] WARNING: could not download Gemini prompt, Gemini models will run without base_instructions" >&2
   rm -f "${GEMINI_PROMPT_FILE}"
@@ -54,15 +54,15 @@ if [[ ! -f "${MODEL_OVERRIDES_FILE}" && -f "/usr/local/share/agent-sandbox/codex
 fi
 
 if [[ -f "${MODEL_MAP_FILE}" ]]; then
-  echo "[codex-bootstrap] using model map file: ${MODEL_MAP_FILE}"
+  :
 else
   echo "[codex-bootstrap] WARNING: model map file not found: ${MODEL_MAP_FILE}" >&2
 fi
 
 if [[ -f "${MODEL_OVERRIDES_FILE}" ]]; then
-  echo "[codex-bootstrap] using model overrides file: ${MODEL_OVERRIDES_FILE}"
+  :
 else
-  echo "[codex-bootstrap] INFO: model overrides file not found: ${MODEL_OVERRIDES_FILE}" >&2
+  :
 fi
 
 trim() {
@@ -80,7 +80,6 @@ toml_escape_basic() {
 }
 
 if [[ "${CUSTOM_CODEX_ENABLED:-0}" != "1" ]]; then
-  echo "[codex-bootstrap] CUSTOM_CODEX_ENABLED is not 1 — skipping custom backend config; wrapper/aliases still applied."
   BASE_URL=""
 elif [[ -z "${BASE_URL}" ]]; then
   echo "[codex-bootstrap] OPENAI_BASE_URL is not set — skipping Codex config." >&2
@@ -92,9 +91,6 @@ if [[ -z "${BASE_URL}" ]]; then
   ENABLE_CUSTOM_CODEX=0
 fi
 
-if [[ "${ENABLE_CUSTOM_CODEX}" == "1" ]]; then
-  echo "[codex-bootstrap] CUSTOM_CODEX_ENABLED=1 — applying custom backend config."
-fi
 
 if [[ "${ENABLE_CUSTOM_CODEX}" == "1" ]]; then
 MODELS=()
@@ -221,7 +217,6 @@ for i, model_slug in enumerate(requested):
     elif had_cloud_source:
         source_kind = "cloud"
 
-    print(f"[codex-bootstrap] model-meta: model={model_slug} upstream={upstream_slug} source={source_kind}", file=sys.stderr)
 
     if source:
         entry = dict(source)
@@ -276,7 +271,6 @@ summary = {
     "overrides": overrides_count,
     "fallback": fallback_count,
 }
-print(f"[codex-bootstrap] model-meta-summary: requested={summary['requested']} mapped={summary['mapped']} cloud_hits={summary['cloud_hits']} overrides={summary['overrides']} fallback={summary['fallback']}", file=sys.stderr)
 print(json.dumps({"models": result}, ensure_ascii=False, indent=2))
 PY
 }
@@ -341,7 +335,6 @@ printf "%s\n" "${CATALOG_MODELS[@]}" > "${MODELS_LIST_FILE}"
 CLOUD_MODELS_FILE="${CODEX_DIR}/cloud-models.json"
 if [[ -n "${PYTHON_BIN}" ]] && fetch_cloud_models "${SOURCE_MODELS_URL}" "${CLOUD_MODELS_FILE}"; then
   build_catalog_from_cloud "${CLOUD_MODELS_FILE}" "${MODEL_MAP_FILE}" "${MODEL_OVERRIDES_FILE}" "${MODELS_LIST_FILE}" "${GEMINI_PROMPT_FILE}" > "${CATALOG_PATH}"
-  echo "[codex-bootstrap] model catalog generated from cloud source: ${SOURCE_MODELS_URL}"
 else
   echo "[codex-bootstrap] WARNING: cloud model source unavailable, using fallback catalog generation." >&2
   if [[ -n "${PYTHON_BIN}" ]]; then
@@ -393,11 +386,6 @@ fi
 printf "%s=%s\n" "${PROVIDER_ENV_KEY}" "${API_KEY}" > "${CODEX_DIR}/.env"
 chmod 0600 "${CODEX_DIR}/.env"
 
-echo "[codex-bootstrap] ~/.codex/config.toml written (model_provider=${PROVIDER_ID}, model=${MODEL}, base_url=${BASE_URL}, profiles=${#MODELS[@]})"
-if [[ ${#MODELS[@]} -gt 0 ]]; then
-  echo "[codex-bootstrap] profiles generated: ${MODELS[*]}"
-fi
-echo "[codex-bootstrap] ~/.codex/.env written (key=${PROVIDER_ENV_KEY})"
 fi
 fi
 
@@ -428,7 +416,6 @@ exec codex "$@"
 WRAPPER
 
 chmod +x "${CODEX_WRAPPER}"
-echo "[codex-bootstrap] ${CODEX_WRAPPER} created."
 
 BASHRC="${HOME}/.bashrc"
 add_alias() {
@@ -438,14 +425,12 @@ add_alias() {
   local prefix="$4"
   [ -f "${rc_file}" ] || touch "${rc_file}"
   if grep -qF "alias ${name}=" "${rc_file}" 2>/dev/null; then
-    echo "[${prefix}] alias '${name}' already exists in ${rc_file} — skipping."
     return 0
   fi
   printf '\n# Added by cli-agents/codex/bootstrap.sh\nalias %s="%s"\n' "${name}" "${target}" >> "${rc_file}"
-  echo "[${prefix}] alias '${name}' added to ${rc_file}."
 }
 
 add_alias "cx" "${CODEX_WRAPPER}" "${BASHRC}" "codex-bootstrap"
 add_alias "сч" "${CODEX_WRAPPER}" "${BASHRC}" "codex-bootstrap"
 
-echo "[codex-bootstrap] Done. Aliases active after: source ~/.bashrc"
+echo "[codex-bootstrap] Done."
