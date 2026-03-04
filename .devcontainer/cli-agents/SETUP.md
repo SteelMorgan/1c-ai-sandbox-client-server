@@ -180,7 +180,8 @@ local statusline_js="/usr/local/share/agent-sandbox/cli-agents/claude/tools/stat
 CUSTOM_CLAUDE_ENABLED=1
 CUSTOM_CODEX_ENABLED=1
 CUSTOM_GEMINI_ENABLED=1
-OPENAI_BASE_URL=https://ai.gbig.holdings/v1   # ← URL своего бэкенда
+_CLAUDE_BASE_URL=https://ai.gbig.holdings/v1  # ← URL бэкенда для Claude Code
+_OPENAI_BASE_URL=https://ai.gbig.holdings/v1  # ← URL бэкенда для Codex / Gemini
 
 ## --- Claude Code ---
 CC_HELPER_VALIDATE_MODE=anthropic
@@ -210,7 +211,10 @@ GEMINI_MODEL_PRO_LOW=gemini-pro-low
 GEMINI_MODEL_FLASH=gemini-3-flash
 ```
 
-**Важно:** `OPENAI_BASE_URL` должен заканчиваться на `/v1`.
+**Важно:** `_OPENAI_BASE_URL` и `_CLAUDE_BASE_URL` должны заканчиваться на `/v1`.
+Публичные имена `CLAUDE_BASE_URL` / `OPENAI_BASE_URL` **не** прописываются в `.env` —
+они экспортируются автоматически через `entrypoint.sh` и `/etc/profile.d/custom-backends.sh`
+только когда соответствующий флаг `CUSTOM_*_ENABLED=1`.
 Gemini bootstrap сам строит правильный URL: `${BASE_URL%/v1}/api`.
 
 ### Шаг 5: Настроить Docker secrets
@@ -240,7 +244,7 @@ Gemini CLI использует `GOOGLE_GEMINI_BASE_URL`. Если бэкенд 
 нужно добавить `/api` суффикс, потому что Gemini API роут живёт на `/api/v1beta/`,
 а не на `/v1beta/` напрямую:
 ```bash
-GEMINI_BASE_URL="${OPENAI_BASE_URL%/v1}/api"
+GEMINI_BASE_URL="${_OPENAI_BASE_URL%/v1}/api"
 # https://ai.gbig.holdings/v1 → https://ai.gbig.holdings/api
 ```
 Это уже сделано в `cli-agents/gemini/bootstrap.sh`.
