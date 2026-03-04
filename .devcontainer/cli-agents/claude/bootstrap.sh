@@ -79,7 +79,7 @@ if [[ "${CUSTOM_CLAUDE_ENABLED:-0}" == "1" && -n "${BASE_URL}" ]]; then
   DESIRED_MODE="custom"
 fi
 
-if [[ "${DESIRED_MODE}" == "native" && "${PREV_MODE}" == "custom" ]]; then
+if [[ "${DESIRED_MODE}" == "native" ]]; then
   if [[ -f "${HELPER_MJS}" ]] && command -v node >/dev/null 2>&1; then
     node "${HELPER_MJS}" unset >/dev/null 2>&1 || echo "[claude-bootstrap] WARNING: failed to unset helper-managed Claude env" >&2
   fi

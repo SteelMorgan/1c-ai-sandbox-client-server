@@ -6,7 +6,7 @@
   "remoteUser": "vscode",
   "updateRemoteUserUID": false,
   "postCreateCommand": "bash /usr/local/share/agent-sandbox/postCreateCommand.sh && (bash /usr/local/share/agent-sandbox/sync-onec-infra-hosts.sh || bash .devcontainer/sync-onec-infra-hosts.sh || true) && sudo /usr/local/bin/onec-activate-community.sh",
-  "postStartCommand": "bash /usr/local/share/agent-sandbox/postCreateCommand.sh && (bash /usr/local/share/agent-sandbox/sync-onec-infra-hosts.sh || bash .devcontainer/sync-onec-infra-hosts.sh || true) && sudo /usr/local/bin/onec-activate-community.sh",
+  "postStartCommand": "(bash /usr/local/share/agent-sandbox/sync-onec-infra-hosts.sh || bash .devcontainer/sync-onec-infra-hosts.sh || true) && sudo /usr/local/bin/onec-activate-community.sh",
   "remoteEnv": {
     "LANG": "ru_RU.UTF-8",
     "LANGUAGE": "ru_RU:ru",
