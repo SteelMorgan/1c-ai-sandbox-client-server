@@ -80,8 +80,18 @@ toml_escape_basic() {
 }
 
 if [[ "${CUSTOM_CODEX_ENABLED:-0}" != "1" ]]; then
+  # Explicitly clear previously managed custom backend/auth state.
+  rm -f "${CODEX_DIR}/.env" "${CODEX_DIR}/config.toml" "${CODEX_DIR}/config.yaml" "${CODEX_DIR}/model-catalog.json" "${CODEX_DIR}/models.list" "${CODEX_DIR}/cloud-models.json" 2>/dev/null || true
+  if command -v codex >/dev/null 2>&1; then
+    codex logout >/dev/null 2>&1 || true
+  fi
   BASE_URL=""
 elif [[ -z "${BASE_URL}" ]]; then
+  # Missing base URL means custom backend cannot be applied; clear stale managed state.
+  rm -f "${CODEX_DIR}/.env" "${CODEX_DIR}/config.toml" "${CODEX_DIR}/config.yaml" "${CODEX_DIR}/model-catalog.json" "${CODEX_DIR}/models.list" "${CODEX_DIR}/cloud-models.json" 2>/dev/null || true
+  if command -v codex >/dev/null 2>&1; then
+    codex logout >/dev/null 2>&1 || true
+  fi
   echo "[codex-bootstrap] OPENAI_BASE_URL is not set — skipping Codex config." >&2
   BASE_URL=""
 fi

@@ -52,8 +52,20 @@ fi
 BASE_URL="${OPENAI_BASE_URL:-}"
 
 if [[ "${CUSTOM_CLAUDE_ENABLED:-0}" != "1" ]]; then
-  :
+  if [[ -f "${HELPER_MJS}" ]] && command -v node >/dev/null 2>&1; then
+    node "${HELPER_MJS}" unset >/dev/null 2>&1 || echo "[claude-bootstrap] WARNING: failed to unset helper-managed Claude env" >&2
+  fi
+  if command -v claude >/dev/null 2>&1; then
+    claude auth logout >/dev/null 2>&1 || true
+  fi
 elif [[ -z "${BASE_URL}" ]]; then
+  if [[ -f "${HELPER_MJS}" ]] && command -v node >/dev/null 2>&1; then
+    node "${HELPER_MJS}" unset >/dev/null 2>&1 || true
+  fi
+  if command -v claude >/dev/null 2>&1; then
+    claude auth logout >/dev/null 2>&1 || true
+  fi
+
   echo "[claude-bootstrap] OPENAI_BASE_URL is not set — skipping Claude custom backend config." >&2
   # Still set up wrapper and alias even without custom backend
 fi
