@@ -46,6 +46,10 @@ FROM mcr.microsoft.com/devcontainers/base:ubuntu-24.04
 USER root
 ARG DEBIAN_FRONTEND=noninteractive
 ARG ONEC_VERSION
+ENV ONESCRIPT_VERSION="2.0.0" \
+    VANESSAEXT_VERSION="1.3.9.95" \
+    ALLURE_VERSION="2.37.0" \
+    IMAGEMAGICK_VERSION="7.1.2-15"
 
 # Base sandbox tooling (keep aligned with .devcontainer/Dockerfile)
 RUN apt-get update \
@@ -63,6 +67,7 @@ RUN apt-get update \
     nodejs \
     tmux \
     npm \
+    unzip \
   && rm -rf /var/lib/apt/lists/*
 
 # Passwordless sudo for vscode (enabled only when container is started without no-new-privileges).
@@ -112,6 +117,10 @@ RUN apt-get update \
     websockify \
     dbus-x11 \
     xauth \
+    ffmpeg \
+    ghostscript \
+    wmctrl \
+    x11-utils \
     libglib2.0-0 \
     libgsf-1-114 \
     libwebkit2gtk-4.1-0 \
@@ -137,6 +146,26 @@ RUN apt-get update \
   && locale-gen ru_RU.UTF-8 \
   && update-locale LANG=ru_RU.UTF-8 LC_ALL=ru_RU.UTF-8 LC_CTYPE=ru_RU.UTF-8 LANGUAGE=ru_RU:ru \
   && rm -rf /var/lib/apt/lists/*
+
+# Lightweight QA tooling that does not depend on OneScript.
+RUN set -eux; \
+  apt-get update -o Acquire::ForceIPv4=true -o Acquire::Retries=3; \
+  apt-get install -y --no-install-recommends \
+    xdotool; \
+  mkdir -p "/opt/vanessaext/${VANESSAEXT_VERSION}"; \
+  curl -fsSLo /tmp/AddIn.zip \
+    "https://github.com/lintest/VanessaExt/releases/download/${VANESSAEXT_VERSION}/AddIn.zip"; \
+  unzip -q /tmp/AddIn.zip -d "/opt/vanessaext/${VANESSAEXT_VERSION}"; \
+  curl -fsSLo "/opt/vanessaext/${VANESSAEXT_VERSION}/VanessaExt.epf" \
+    "https://github.com/lintest/VanessaExt/releases/download/${VANESSAEXT_VERSION}/VanessaExt.epf"; \
+  curl -fsSLo /tmp/allure.deb \
+    "https://github.com/allure-framework/allure2/releases/download/${ALLURE_VERSION}/allure_${ALLURE_VERSION}-1_all.deb"; \
+  apt-get install -y --no-install-recommends /tmp/allure.deb; \
+  rm -rf /tmp/AddIn.zip /tmp/allure.deb; \
+  rm -rf /var/lib/apt/lists/*; \
+  allure --version; \
+  xdotool --version; \
+  find /opt/vanessaext -maxdepth 2 -type f | sort
 
 # For Gradle builds inside the container.
 ENV JAVA_HOME="/usr/lib/jvm/java-21-openjdk-amd64" \
@@ -255,4 +284,3 @@ RUN sed -i 's/\r$//' \
 ENTRYPOINT ["/usr/local/share/agent-sandbox/entrypoint.sh"]
 USER root
 CMD ["sleep", "infinity"]
-
