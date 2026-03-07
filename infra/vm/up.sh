@@ -30,6 +30,14 @@ ensure_ufw_ports() {
   if [[ "${web_port}" =~ ^[0-9]{1,5}$ ]]; then
     sudo -n ufw allow "${web_port}/tcp" >/dev/null 2>&1 || true
   fi
+
+  # 1C server ports on the VM host network.
+  # 1542 is opened for experiments with 1C storage service connectivity,
+  # without changing the current server installation/configuration.
+  sudo -n ufw allow 1540/tcp >/dev/null 2>&1 || true
+  sudo -n ufw allow 1541/tcp >/dev/null 2>&1 || true
+  sudo -n ufw allow 1545/tcp >/dev/null 2>&1 || true
+  sudo -n ufw allow 1560:1591/tcp >/dev/null 2>&1 || true
 }
 
 install_autostart_systemd() {
