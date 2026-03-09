@@ -70,12 +70,14 @@ secrets:
 
 volumes:
   agent-work-sandbox-1c:
+    name: agent-work-sandbox-1c
     external: true
   onec-licenses:
+    name: onec-licenses
   agent-home-1c:
+    name: agent-home-1c
 
 networks:
   infra:
     external: true
     name: ${AGENT_INFRA_NETWORK:-infra}
-

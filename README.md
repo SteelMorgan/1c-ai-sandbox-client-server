@@ -105,6 +105,14 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\hyperv\Publish-OnecInfob
 
 Дальше так:
 
+- Перед первым запуском создай **external volume** `agent-work-sandbox-1c`:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\ensure-external-volumes.ps1
+```
+
+- Именованные volume `onec-licenses` и `agent-home-1c` `docker compose` создаст сам.
+- Данные в volume (`agent-work-sandbox-1c`, `onec-licenses`, `agent-home-1c`) **сохраняются при rebuild/recreate контейнера**. Они удалятся только если удалить volume явно.
 - Открываешь Cursor/VS Code
 - Команда **Dev Containers: Open Folder in Container** и выбираешь папку **этого** репозитория
 - Откроется **новое окно**, уже подключённое к клиентскому контейнеру
