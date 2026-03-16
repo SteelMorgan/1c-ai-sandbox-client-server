@@ -79,12 +79,12 @@ start_xvfb() {
   chmod 1777 /tmp/.X11-unix || true
 
   # Start a virtual framebuffer in background.
-  # - 1280x720x24 is plenty for headless needs.
+  # - 1920x1080x24 is plenty for headless needs.
   # - Write logs to a file to avoid polluting stdout.
   if id -u vscode >/dev/null 2>&1; then
-    su -s /bin/bash vscode -c "nohup Xvfb \"${display}\" -screen 0 1280x720x24 -nolisten tcp -ac -noreset >\"${log}\" 2>&1 &"
+    su -s /bin/bash vscode -c "nohup Xvfb \"${display}\" -screen 0 1920x1080x24 -nolisten tcp -ac -noreset >\"${log}\" 2>&1 &"
   else
-    nohup Xvfb "${display}" -screen 0 1280x720x24 -nolisten tcp -ac -noreset \
+    nohup Xvfb "${display}" -screen 0 1920x1080x24 -nolisten tcp -ac -noreset \
       >"${log}" 2>&1 &
   fi
 
@@ -99,9 +99,9 @@ start_xvfb() {
     echo "WARNING: Xvfb did not become ready (DISPLAY=${display}). Found ${lock} without a running Xvfb. Retrying after lock cleanup."
     rm -f "$lock" || true
     if id -u vscode >/dev/null 2>&1; then
-      su -s /bin/bash vscode -c "nohup Xvfb \"${display}\" -screen 0 1280x720x24 -nolisten tcp -ac -noreset >\"${log}\" 2>&1 &"
+      su -s /bin/bash vscode -c "nohup Xvfb \"${display}\" -screen 0 1920x1080x24 -nolisten tcp -ac -noreset >\"${log}\" 2>&1 &"
     else
-      nohup Xvfb "${display}" -screen 0 1280x720x24 -nolisten tcp -ac -noreset \
+      nohup Xvfb "${display}" -screen 0 1920x1080x24 -nolisten tcp -ac -noreset \
         >"${log}" 2>&1 &
     fi
     for _ in $(seq 1 50); do
@@ -140,11 +140,14 @@ start_vnc_bridge() {
   nohup x11vnc \
     -display "${DISPLAY}" \
     -rfbport 5900 \
+    -localhost \
+    -nopw \
     -forever \
     -shared \
-    -nopw \
     -noxdamage \
-    -noshm \
+    -noxfixes \
+    -noscr \
+    -nowf \
     >"${vnc_log}" 2>&1 &
 
   # Debian/Ubuntu websockify script has python shebang; run via python3 explicitly for stability.
