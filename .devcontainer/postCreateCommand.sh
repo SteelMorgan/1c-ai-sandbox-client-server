@@ -18,7 +18,7 @@ fi
 echo "Devcontainer ready."
 echo
 echo "Next steps:"
-echo "- Create/confirm Docker volume: agent-work-sandbox-1c"
+echo "- Create/confirm Docker volumes: agent-work-sandbox-1c, onescript-cache-1c, onec-licenses"
 echo "- Authenticate GitHub bot inside container (see docs/github-bot-setup.md)"
 echo "- Work only on branches: agent/<task>-<yyyymmdd>"
 
@@ -34,6 +34,30 @@ pip3 install --quiet --break-system-packages "python-xlib==0.33" "Pillow" "tikto
 bash /usr/local/share/agent-sandbox/gh-auth-bootstrap.sh || true
 
 # OneScript + Vanessa bootstrap (idempotent).
+ensure_onescript_shims() {
+  local onescript_home="$1"
+
+  if [ -x "${onescript_home}/bin/oscript" ]; then
+    sudo ln -sf "${onescript_home}/bin/oscript" /usr/local/bin/oscript
+  fi
+
+  if [ -x "${onescript_home}/bin/opm" ]; then
+    printf '%s\n' \
+      '#!/usr/bin/env bash' \
+      "exec ${onescript_home}/bin/opm \"\$@\"" \
+      | sudo tee /usr/local/bin/opm >/dev/null
+    sudo chmod 0755 /usr/local/bin/opm
+  fi
+
+  if [ -f "${onescript_home}/lib/vanessa-runner/src/main.os" ]; then
+    printf '%s\n' \
+      '#!/usr/bin/env bash' \
+      "exec oscript ${onescript_home}/lib/vanessa-runner/src/main.os \"\$@\"" \
+      | sudo tee /usr/local/bin/vrunner >/dev/null
+    sudo chmod 0755 /usr/local/bin/vrunner
+  fi
+}
+
 install_onescript_vanessa() {
   local onescript_version="2.0.0"
   local onescript_home="/opt/onescript/${onescript_version}"
@@ -42,6 +66,8 @@ install_onescript_vanessa() {
   local marker="${onescript_home}/.postcreate-installed"
   local log_dir="/workspaces/work/temp"
   local log_file="${log_dir}/onescript-postcreate.log"
+
+  ensure_onescript_shims "${onescript_home}"
 
   if command -v oscript >/dev/null 2>&1 \
     && command -v opm >/dev/null 2>&1 \
@@ -67,20 +93,12 @@ install_onescript_vanessa() {
       "${onescript_home}/bin/opm" \
       "${onescript_home}/bin/createdump"
 
-    sudo ln -sf "${onescript_home}/bin/oscript" /usr/local/bin/oscript
-
-    printf '%s\n' \
-      '#!/usr/bin/env bash' \
-      "exec ${onescript_home}/bin/opm \"\$@\"" \
-      | sudo tee /usr/local/bin/opm >/dev/null
-    sudo chmod 0755 /usr/local/bin/opm
+    ensure_onescript_shims "${onescript_home}"
 
     sudo /usr/local/bin/opm install add
     sudo /usr/local/bin/opm install vanessa-runner
     sudo /usr/local/bin/opm install vanessa-automation-single
-    sudo /usr/local/bin/opm app --app-name vrunner \
-      "${onescript_home}/lib/vanessa-runner/src/main.os" \
-      /usr/local/bin
+    ensure_onescript_shims "${onescript_home}"
 
     oscript --version
     opm --version

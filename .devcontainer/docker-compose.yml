@@ -36,6 +36,8 @@ services:
     volumes:
       # Separate workspace volume for 1C sandbox
       - agent-work-sandbox-1c:/workspaces/work
+      # Persist OneScript + Vanessa tooling across rebuilds
+      - onescript-cache-1c:/opt/onescript
       # Persist licenses across rebuilds
       - onec-licenses:/var/1C/licenses
       # Persist entire vscode home across rebuilds (CLI configs, sessions, history, gh auth, etc.)
@@ -72,8 +74,12 @@ volumes:
   agent-work-sandbox-1c:
     name: agent-work-sandbox-1c
     external: true
+  onescript-cache-1c:
+    name: onescript-cache-1c
+    external: true
   onec-licenses:
     name: onec-licenses
+    external: true
   agent-home-1c:
     name: agent-home-1c
 

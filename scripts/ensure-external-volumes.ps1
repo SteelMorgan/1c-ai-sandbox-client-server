@@ -1,5 +1,6 @@
 param(
-  [string[]]$VolumeNames = @("agent-work-sandbox-1c")
+  # External Docker volumes required by .devcontainer/docker-compose.yml.
+  [string[]]$VolumeNames = @("agent-work-sandbox-1c", "onescript-cache-1c", "onec-licenses")
 )
 
 $ErrorActionPreference = "Stop"
@@ -12,8 +13,12 @@ function Assert-DockerAvailable {
 }
 
 function Ensure-Volume([string]$Name) {
-  & docker volume inspect $Name *> $null
-  if ($LASTEXITCODE -eq 0) {
+  $existingVolumes = & docker volume ls --format "{{.Name}}"
+  if ($LASTEXITCODE -ne 0) {
+    throw "Не удалось получить список Docker volumes."
+  }
+
+  if ($existingVolumes -contains $Name) {
     Write-Host "Docker volume '$Name' уже существует."
     return
   }
@@ -31,4 +36,9 @@ foreach ($volumeName in $VolumeNames) {
   Ensure-Volume $volumeName
 }
 
-Write-Host "Проверка external volume завершена."
+Write-Host ""
+Write-Host "External volumes готовы:"
+foreach ($volumeName in $VolumeNames) {
+  Write-Host " - $volumeName"
+}
+Write-Host "Теперь можно делать Dev Containers: Rebuild Container."

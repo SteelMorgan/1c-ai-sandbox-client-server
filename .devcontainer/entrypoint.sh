@@ -23,10 +23,10 @@ fi
 # Write the same conditional logic into /etc/profile.d/ so that interactive shells
 # (terminals, docker exec) also see the public names only when enabled.
 cat > /etc/profile.d/custom-backends.sh << 'PROFILE_EOF'
-if [[ "${CUSTOM_CLAUDE_ENABLED:-0}" == "1" && -n "${_CLAUDE_BASE_URL:-}" ]]; then
+if [ "${CUSTOM_CLAUDE_ENABLED:-0}" = "1" ] && [ -n "${_CLAUDE_BASE_URL:-}" ]; then
   export CLAUDE_BASE_URL="${_CLAUDE_BASE_URL}"
 fi
-if [[ "${CUSTOM_CODEX_ENABLED:-0}" == "1" && -n "${_OPENAI_BASE_URL:-}" ]]; then
+if [ "${CUSTOM_CODEX_ENABLED:-0}" = "1" ] && [ -n "${_OPENAI_BASE_URL:-}" ]; then
   export OPENAI_BASE_URL="${_OPENAI_BASE_URL}"
 fi
 PROFILE_EOF
@@ -248,4 +248,3 @@ EOF
 fi
 
 exec "$@"
-

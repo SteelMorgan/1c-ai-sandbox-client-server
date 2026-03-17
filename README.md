@@ -105,14 +105,15 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\hyperv\Publish-OnecInfob
 
 Дальше так:
 
-- Перед первым запуском создай **external volume** `agent-work-sandbox-1c`:
+- Перед первым запуском создай **external volumes** `agent-work-sandbox-1c`, `onescript-cache-1c` и `onec-licenses`:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\ensure-external-volumes.ps1
 ```
 
-- Именованные volume `onec-licenses` и `agent-home-1c` `docker compose` создаст сам.
-- Данные в volume (`agent-work-sandbox-1c`, `onec-licenses`, `agent-home-1c`) **сохраняются при rebuild/recreate контейнера**. Они удалятся только если удалить volume явно.
+- Если менялся список external volumes в `.devcontainer/docker-compose.yml`, просто запусти этот скрипт ещё раз перед следующим `Rebuild Container`.
+- Именованный volume `agent-home-1c` `docker compose` создаст сам.
+- Данные в volume (`agent-work-sandbox-1c`, `onescript-cache-1c`, `onec-licenses`, `agent-home-1c`) **сохраняются при rebuild/recreate контейнера**. Они удалятся только если удалить volume явно.
 - Открываешь Cursor/VS Code
 - Команда **Dev Containers: Open Folder in Container** и выбираешь папку **этого** репозитория
 - Откроется **новое окно**, уже подключённое к клиентскому контейнеру
@@ -129,6 +130,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\ensure-external-volumes.ps1
 - **Маппинг имени VM внутрь контейнера**: при старте может обновляться `/etc/hosts`, чтобы имя `onec-infra` указывало на management‑IP VM (если этот IP задан в локальной конфигурации инфраструктуры).
 - **Анти‑футган для git**: стоит pre‑push хук, блокирующий push прямо в `main/master` (чтобы случайно не убить публичный репо). В принципе не обязательно для 1С проектов, т.к. код регулярно бекапится "в базу" при запуске юнит-тестов (а для версионирования достаточно локального репо), но если нужно, то агенту выделяется отдельная ветка и хук запрещает пушить мейн ветку (только через PR)
 - **CLI‑инструменты**: внутри есть базовые утилиты (git, gh, docker cli и т.п.), чтобы агент мог работать “из коробки”.
+- **OneScript/Vanessa не качаются заново на каждом rebuild**: они кэшируются в отдельном volume и переиспользуются новым контейнером.
 
 ## Секреты: единый источник истины
 
