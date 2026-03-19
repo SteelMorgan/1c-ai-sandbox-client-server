@@ -103,8 +103,14 @@ function Parse-InfobasesTxt([string]$path) {
   return $out
 }
 
+function Test-RemoteCommand([string]$remote, [string[]]$sshOpts, [string]$cmd) {
+  & ssh @sshOpts $remote $cmd 2>$null | Out-Null
+  return ($LASTEXITCODE -eq 0)
+}
+
 function Wait-OnecServerHealthy([string]$remote, [string[]]$sshOpts, [int]$timeoutSeconds = 360, [int]$pollSeconds = 5) {
-  $cmd = 'bash -lc ''sudo -n docker inspect -f "{{.State.Health.Status}}" onec-server 2>/dev/null || echo unknown'''
+  $dockerCmd = if ($script:RemoteDockerCmd) { $script:RemoteDockerCmd } else { "docker" }
+  $cmd = ('bash -lc ''{0} inspect -f "{{{{.State.Health.Status}}}}" onec-server 2>/dev/null || echo unknown''' -f $dockerCmd)
   $started = Get-Date
   while ($true) {
     $raw = & ssh @sshOpts $remote $cmd 2>$null
@@ -150,8 +156,8 @@ function Get-Remote-Stats([string]$remote, [string[]]$sshOpts) {
   # IMPORTANT: use single-quoted PowerShell string to avoid `$` interpolation (bash/awk uses `$` heavily).
   # Note: `free` output can be localized. Avoid matching the "Mem:" label and use row number instead.
   # Also force C locale for deterministic output.
-  # IMPORTANT: run docker under sudo, because sandbox user may not be in docker group.
-  $cmd = 'bash -lc ''set -e; export LANG=C LC_ALL=C; load=$(awk "{print \$1\" \"\$2\" \"\$3}" /proc/loadavg); mem=$(free -m | awk "NR==2{print $3\"/\"$2\"MB\"}"); root=$(df -Pm / | awk "NR==2{print $5\" used,\" $4\"MB free\"}"); dock=$(df -Pm /var/lib/docker 2>/dev/null | awk "NR==2{print $5\" used,\" $4\"MB free\"}" || echo n/a); c=$(sudo -n docker ps -q 2>/dev/null | wc -l || echo 0); echo "load=$load mem=$mem root=$root dockerfs=$dock containers=$c"'''
+  $dockerCmd = if ($script:RemoteDockerCmd) { $script:RemoteDockerCmd } else { "docker" }
+  $cmd = ('bash -lc ''set -e; export LANG=C LC_ALL=C; load=$(awk "{{print \$1\" \"\$2\" \"\$3}}" /proc/loadavg); mem=$(free -m | awk "NR==2{{print \$3\"/\"\$2\"MB\"}}"); root=$(df -Pm / | awk "NR==2{{print \$5\" used,\" \$4\"MB free\"}}"); dock=$(df -Pm /var/lib/docker 2>/dev/null | awk "NR==2{{print \$5\" used,\" \$4\"MB free\"}}" || echo n/a); c=$({0} ps -q 2>/dev/null | wc -l || echo 0); echo "load=$load mem=$mem root=$root dockerfs=$dock containers=$c"''' -f $dockerCmd)
   $line = & ssh @sshOpts $remote $cmd 2>$null
   if ($LASTEXITCODE -ne 0 -or -not $line) { return @{} }
   $h = @{}
@@ -182,7 +188,8 @@ function Invoke-Remote-LongStep(
 
   # Start in background and detach from SSH (nohup).
   # IMPORTANT: keep the template single-quoted to avoid PowerShell `$?` interpolation.
-  $startCmd = ('bash -lc ''set -e; rm -f "{0}" "{1}"; nohup sudo -n bash -lc "set -euo pipefail; {2} ; echo $? > ''{1}''" > "{0}" 2>&1 & echo ok''' -f $logPath, $exitPath, $commandToRunAsRoot)
+  $remoteShell = if ($script:RemoteRootShell) { $script:RemoteRootShell } else { "bash -lc" }
+  $startCmd = ('bash -lc ''set -e; rm -f "{0}" "{1}"; nohup {2} "set -euo pipefail; {3} ; echo $? > ''{1}''" > "{0}" 2>&1 & echo ok''' -f $logPath, $exitPath, $remoteShell, $commandToRunAsRoot)
   Invoke-Remote $remote $sshOpts $startCmd "Failed to start '$activity'"
 
   $lastCheckpoint = Get-Date
@@ -300,28 +307,53 @@ if ($SshIdentityFile -and (Test-Path $SshIdentityFile)) {
   $sshOpts += @("-o","IdentitiesOnly=yes","-i",$SshIdentityFile)
 }
 
-# Preflight: ensure passwordless sudo (otherwise ssh can hang waiting for password).
-& ssh @sshOpts $remote "sudo -n true" 2>$null | Out-Null
-if ($LASTEXITCODE -ne 0) {
-  throw "Remote user '$SshUser' cannot run sudo without password. Fix: recreate VM with passwordless sudo (autoinstall late-command), or configure sudoers on the VM."
+# Preflight: detect whether remote operations should run directly or through passwordless sudo.
+$script:RemoteRootPrefix = ""
+$script:RemoteRootShell = "bash -lc"
+if (Test-RemoteCommand $remote $sshOpts ('bash -lc ''mkdir -p "{0}" && test -w "{0}"''' -f $RemoteDir)) {
+  $script:RemoteRootPrefix = ""
+  $script:RemoteRootShell = "bash -lc"
+} elseif (Test-RemoteCommand $remote $sshOpts ('bash -lc ''sudo -n mkdir -p "{0}" && sudo -n chown -R "{1}" "{0}" && test -w "{0}"''' -f $RemoteDir, $SshUser)) {
+  $script:RemoteRootPrefix = "sudo -n"
+  $script:RemoteRootShell = "sudo -n bash -lc"
+} else {
+  throw "Remote path '$RemoteDir' is not writable and passwordless sudo is unavailable. Fix sudoers on the VM or grant '$SshUser' write access to '$RemoteDir'."
 }
 
-& ssh @sshOpts $remote "sudo -n mkdir -p '$RemoteDir' && sudo -n chown -R $SshUser '$RemoteDir'" 2>$null | Out-Null
-if ($LASTEXITCODE -ne 0) { throw "Remote mkdir/chown failed (ssh exit=$LASTEXITCODE)." }
+# Preflight: determine how docker is accessed on the VM.
+$script:RemoteDockerCmd = $null
+if (Test-RemoteCommand $remote $sshOpts "docker version >/dev/null 2>&1 && docker compose version >/dev/null 2>&1") {
+  $script:RemoteDockerCmd = "docker"
+} elseif (Test-RemoteCommand $remote $sshOpts "sudo -n docker version >/dev/null 2>&1 && sudo -n docker compose version >/dev/null 2>&1") {
+  $script:RemoteDockerCmd = "sudo -n docker"
+} else {
+  throw "Remote user '$SshUser' cannot use Docker directly and passwordless sudo for Docker is unavailable."
+}
+
 & scp @sshOpts $tmp "${remote}:/tmp/onec-sandbox.tar.gz" 2>$null | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "SCP upload failed (exit=$LASTEXITCODE)." }
-& ssh @sshOpts $remote "sudo -n rm -rf '$RemoteDir'/* && sudo -n tar --warning=no-unknown-keyword -xzf /tmp/onec-sandbox.tar.gz -C '$RemoteDir' && sudo -n chown -R $SshUser '$RemoteDir'" 2>$null | Out-Null
+$extractCmd = if ($script:RemoteRootPrefix) {
+  ('bash -lc ''{0} rm -rf "{1}"/* && {0} tar --warning=no-unknown-keyword -xzf /tmp/onec-sandbox.tar.gz -C "{1}" && {0} chown -R "{2}" "{1}"''' -f $script:RemoteRootPrefix, $RemoteDir, $SshUser)
+} else {
+  ('bash -lc ''rm -rf "{0}"/* && tar --warning=no-unknown-keyword -xzf /tmp/onec-sandbox.tar.gz -C "{0}"''' -f $RemoteDir)
+}
+& ssh @sshOpts $remote $extractCmd 2>$null | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "Remote extract failed (ssh exit=$LASTEXITCODE)." }
 
 # Normalize line endings for Linux shell scripts (Windows CRLF breaks shebang: /usr/bin/env: 'bash\r' ...).
 # Also normalize secrets/.env because prepare-secrets uses `source` and CRLF breaks bash parsing.
 # Keep it narrowly scoped to scripts we execute + secrets/.env.
-$eolCmd = 'cd ''{0}'' && sudo -n perl -pi -e ''s/\r$//'' infra/vm/up.sh infra/vm/down.sh infra/vm/postgres/ensure-pg-user.sh scripts/prepare-secrets.sh && (test -f secrets/.env && perl -pi -e ''s/\r$//'' secrets/.env || true)' -f $RemoteDir
+$eolCmd = if ($script:RemoteRootPrefix) {
+  ('cd ''{0}'' && {1} perl -pi -e ''s/\r$//'' infra/vm/up.sh infra/vm/down.sh infra/vm/postgres/ensure-pg-user.sh scripts/prepare-secrets.sh && (test -f secrets/.env && {1} perl -pi -e ''s/\r$//'' secrets/.env || true)' -f $RemoteDir, $script:RemoteRootPrefix)
+} else {
+  ('cd ''{0}'' && perl -pi -e ''s/\r$//'' infra/vm/up.sh infra/vm/down.sh infra/vm/postgres/ensure-pg-user.sh scripts/prepare-secrets.sh && (test -f secrets/.env && perl -pi -e ''s/\r$//'' secrets/.env || true)' -f $RemoteDir)
+}
 & ssh @sshOpts $remote $eolCmd 2>$null | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "Remote EOL normalization failed (ssh exit=$LASTEXITCODE)." }
 
 # Ensure scripts are executable and Docker is available
-& ssh @sshOpts $remote "cd '$RemoteDir' && chmod +x infra/vm/up.sh infra/vm/down.sh infra/vm/postgres/ensure-pg-user.sh scripts/prepare-secrets.sh && docker --version && docker compose version" 2>$null | Out-Null
+$preflightCmd = ('cd ''{0}'' && chmod +x infra/vm/up.sh infra/vm/down.sh infra/vm/postgres/ensure-pg-user.sh scripts/prepare-secrets.sh && {1} version && {1} compose version' -f $RemoteDir, $script:RemoteDockerCmd)
+& ssh @sshOpts $remote $preflightCmd 2>$null | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "Remote preflight failed (ssh exit=$LASTEXITCODE)." }
 
 # Prepare secrets on VM from secrets/.env (preferred) and harden permissions.
@@ -345,14 +377,14 @@ if ($ResetOnecData -or $ResetPgData) {
 
   if ($ResetOnecData) {
     # Volume name comes from compose project name 'vm' + declared volume 'onec-data' => vm_onec-data
-    $rmOnec = "bash -lc 'set -euo pipefail; if sudo -n docker volume inspect vm_onec-data >/dev/null 2>&1; then sudo -n docker volume rm vm_onec-data; fi'"
+    $rmOnec = ('bash -lc ''set -euo pipefail; if {0} volume inspect vm_onec-data >/dev/null 2>&1; then {0} volume rm vm_onec-data; fi''' -f $script:RemoteDockerCmd)
     & ssh @sshOpts $remote $rmOnec 2>$null | Out-Null
     if ($LASTEXITCODE -ne 0) { throw "Failed to remove docker volume vm_onec-data (ssh exit=$LASTEXITCODE)." }
   }
 
   if ($ResetPgData) {
     # Volume name comes from compose project name 'vm' + declared volume 'pgdata' => vm_pgdata
-    $rmPg = "bash -lc 'set -euo pipefail; if sudo -n docker volume inspect vm_pgdata >/dev/null 2>&1; then sudo -n docker volume rm vm_pgdata; fi'"
+    $rmPg = ('bash -lc ''set -euo pipefail; if {0} volume inspect vm_pgdata >/dev/null 2>&1; then {0} volume rm vm_pgdata; fi''' -f $script:RemoteDockerCmd)
     & ssh @sshOpts $remote $rmPg 2>$null | Out-Null
     if ($LASTEXITCODE -ne 0) { throw "Failed to remove docker volume vm_pgdata (ssh exit=$LASTEXITCODE)." }
   }
@@ -393,4 +425,3 @@ Write-Host "     1C ports: 1540,1541,1545,1560-1591 (TCP)"
 Write-Host "     Postgres: 5432 (TCP)"
 
 Remove-Item -Force $tmp -ErrorAction SilentlyContinue
-
