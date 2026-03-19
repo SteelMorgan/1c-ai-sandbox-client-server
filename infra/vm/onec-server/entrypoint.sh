@@ -25,6 +25,7 @@ echo "[INFO] Starting 1C cluster agent (ragent): port=${RAGENT_PORT} regport=${R
   -port "$RAGENT_PORT" \
   -regport "$RAGENT_REGPORT" \
   -range "$RAGENT_RANGE" \
+  -debug \
   >/var/log/onec/ragent.log 2>&1 &
 RAGENT_PID=$!
 
