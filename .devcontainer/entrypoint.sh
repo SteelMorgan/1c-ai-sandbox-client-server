@@ -78,14 +78,15 @@ start_xvfb() {
   mkdir -p /tmp/.X11-unix
   chmod 1777 /tmp/.X11-unix || true
 
-  # Start a virtual framebuffer in background.
+  # Start a virtual framebuffer in background with auto-restart watchdog.
   # - 1920x1080x24 is plenty for headless needs.
   # - Write logs to a file to avoid polluting stdout.
+  local xvfb_cmd="Xvfb \"${display}\" -screen 0 1920x1080x24 -nolisten tcp -ac -noreset"
+  local watchdog='while true; do '"${xvfb_cmd}"' >>'"${log}"' 2>&1; echo "$(date): Xvfb exited, restarting in 1s..." >>'"${log}"'; sleep 1; done'
   if id -u vscode >/dev/null 2>&1; then
-    su -s /bin/bash vscode -c "nohup Xvfb \"${display}\" -screen 0 1920x1080x24 -nolisten tcp -ac -noreset >\"${log}\" 2>&1 &"
+    su -s /bin/bash vscode -c "nohup bash -c '${watchdog}' >/dev/null 2>&1 &"
   else
-    nohup Xvfb "${display}" -screen 0 1920x1080x24 -nolisten tcp -ac -noreset \
-      >"${log}" 2>&1 &
+    nohup bash -c "${watchdog}" >/dev/null 2>&1 &
   fi
 
   # Best-effort wait until the socket appears (fast fail avoids hiding issues).
@@ -99,10 +100,9 @@ start_xvfb() {
     echo "WARNING: Xvfb did not become ready (DISPLAY=${display}). Found ${lock} without a running Xvfb. Retrying after lock cleanup."
     rm -f "$lock" || true
     if id -u vscode >/dev/null 2>&1; then
-      su -s /bin/bash vscode -c "nohup Xvfb \"${display}\" -screen 0 1920x1080x24 -nolisten tcp -ac -noreset >\"${log}\" 2>&1 &"
+      su -s /bin/bash vscode -c "nohup bash -c '${watchdog}' >/dev/null 2>&1 &"
     else
-      nohup Xvfb "${display}" -screen 0 1920x1080x24 -nolisten tcp -ac -noreset \
-        >"${log}" 2>&1 &
+      nohup bash -c "${watchdog}" >/dev/null 2>&1 &
     fi
     for _ in $(seq 1 50); do
       [ -S "$sock" ] && return 0
@@ -137,18 +137,7 @@ start_vnc_bridge() {
   pkill x11vnc >/dev/null 2>&1 || true
   pkill -f '/usr/bin/websockify' >/dev/null 2>&1 || true
 
-  nohup x11vnc \
-    -display "${DISPLAY}" \
-    -rfbport 5900 \
-    -localhost \
-    -nopw \
-    -forever \
-    -shared \
-    -noxdamage \
-    -noxfixes \
-    -noscr \
-    -nowf \
-    >"${vnc_log}" 2>&1 &
+  nohup bash -c 'while true; do x11vnc -display "'"${DISPLAY}"'" -rfbport 5900 -localhost -nopw -forever -shared -noxdamage -noxfixes -noscr -nowf >>"'"${vnc_log}"'" 2>&1; echo "$(date): x11vnc exited, restarting in 1s..." >>"'"${vnc_log}"'"; sleep 1; done' >/dev/null 2>&1 &
 
   # Debian/Ubuntu websockify script has python shebang; run via python3 explicitly for stability.
   nohup /usr/bin/python3 /usr/bin/websockify \
