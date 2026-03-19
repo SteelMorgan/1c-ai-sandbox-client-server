@@ -108,3 +108,52 @@ URL после публикации:
 ```
 
 `down.sh` также отключает автозапуск systemd unit `onec-infra.service`, чтобы стек не поднимался снова после перезагрузки VM.
+
+## Обновление платформы 1С в существующей VM
+
+Штатный апгрейд платформы в этой схеме делается через пересборку контейнеров внутри уже существующей VM. Пересоздавать VM для этого не нужно.
+
+### Важно
+
+- В `infra/vm/.env` параметр `FORCE_RECREATE_VM` должен быть `false`.
+- Если включить `FORCE_RECREATE_VM=true`, можно получить пересоздание VM вместо обновления платформы.
+- Для обычного апгрейда не использовать режимы очистки данных (`ResetOnecData`, `ResetPgData`).
+
+### Подготовка
+
+1. Положить новый дистрибутив платформы в `.devcontainer/distr/`:
+   `setup-full-<ONEC_VERSION>-x86_64.run`
+2. Обновить `ONEC_VERSION` в `infra/vm/.env`.
+3. Проверить, что `FORCE_RECREATE_VM=false`.
+4. Сделать backup/checkpoint VM и backup данных Postgres/1С.
+
+### Обновление
+
+С Windows-хоста:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\hyperv\Deploy-OnecInfra.ps1 -VmIp <MGMT_VM_IP> -SshIdentityFile .\.cache\hyperv\_ssh\onec-infra\id_ed25519
+```
+
+Если VM была создана штатным сценарием `New-OnecInfraVm.ps1`, для воспроизводимого запуска рекомендуется использовать repo-managed SSH-ключ:
+
+- `.\.cache\hyperv\_ssh\onec-infra\id_ed25519`
+
+Иначе `ssh` может пойти с другим ключом пользователя Windows и деплой завершится ещё на preflight-проверке доступа к VM.
+
+Или прямо внутри VM:
+
+```bash
+cd <repo-root>
+./infra/vm/up.sh
+```
+
+`up.sh` выполняет `docker compose up -d --build`, поэтому `onec-server` и `onec-web` будут пересобраны на новой версии платформы, а volumes с данными останутся на месте.
+
+### После обновления
+
+- проверить health контейнера `onec-server`;
+- проверить доступность кластера через `rac`;
+- проверить открытие ИБ;
+- проверить web-публикации, если используются;
+- затем отдельно пересобрать клиентский devcontainer на хосте.
