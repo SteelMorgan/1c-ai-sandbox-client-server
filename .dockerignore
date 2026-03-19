@@ -1,0 +1,28 @@
+# Ignore everything by default — whitelist only what Dockerfiles need.
+**
+
+# --- .devcontainer (sandbox Dockerfile + shared scripts/distr) ---
+!.devcontainer/
+!.devcontainer/**
+# Re-exclude items not needed as COPY sources
+.devcontainer/.env
+.devcontainer/devcontainer.json
+.devcontainer/docker-compose.yml
+
+# --- onec-client (install scripts, ActivateCommunity.epf, entrypoint) ---
+!onec-client/
+!onec-client/**
+# Re-exclude compose/docs
+onec-client/docker-compose.yml
+onec-client/.env
+onec-client/README.md
+
+# --- infra (ONEC_VERSION .env + server/web scripts) ---
+!infra/vm/.env
+!infra/vm/onec-server/
+!infra/vm/onec-server/**
+!infra/vm/onec-web/
+!infra/vm/onec-web/**
+# Re-exclude Dockerfiles & compose (not COPY sources)
+infra/vm/onec-server/Dockerfile
+infra/vm/docker-compose.yml
