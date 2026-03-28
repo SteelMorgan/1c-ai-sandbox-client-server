@@ -45,10 +45,12 @@ services:
       # Docker-outside-of-Docker (DoD): give the sandbox access to the host Docker daemon.
       # WARNING: access to docker.sock is effectively root-equivalent on the Docker host.
       - /var/run/docker.sock:/var/run/docker.sock
+    privileged: true
     cap_add:
       - SYS_ADMIN
     security_opt:
       - seccomp=unconfined
+      - apparmor=unconfined
     extra_hosts:
       - "STEEL-PC:host-gateway"
       # 1C infra VM (mgmt IP) is synced dynamically from infra/vm/.env by .devcontainer/sync-onec-infra-hosts.sh

@@ -1,0 +1,125 @@
+---
+description: Диагностика системы лицензирования HASP — порядок проверки компонентов по цепочке через SSH
+alwaysApply: true
+---
+
+# Диагностика лицензирования HASP (1C SandBox)
+
+## Источник истины
+
+Полная документация системы лицензирования находится в:
+- Каталог: `D:\My Projects\FrameWork 1C\SandBox 1C LIC`
+- README: `D:\My Projects\FrameWork 1C\SandBox 1C LIC\README.md`
+
+**Перед любой диагностикой обязательно прочитай README целиком** — там описана архитектура, настройка и типовые сценарии поломок.
+
+## Архитектура цепочки лицензирования
+
+```
+HASPEMUL VM (192.168.1.52) → usbhaspd + VirtualHere (:7575)
+    ↓ USB-проброс
+onec-infra VM → vhclientx86_64 → aksusbd → hasplm (UDP:475)
+    ↓ bind-mount
+onec-server контейнер → ragent/rmngr → nethasp.ini → localhost:475
+    ↓ TCP 1540-1591
+1c-ai-sandbox контейнер → тонкий клиент 1С
+```
+
+## Порядок диагностики (проверяй сверху вниз)
+
+При проблемах с лицензиями **всегда проверяй всю цепочку** по порядку через SSH на onec-infra VM. Если какой-то шаг не проходит — чини его, не переходя к следующему.
+
+### Шаг 1: HASPEMUL VM запущена и доступна
+
+```bash
+ping -c 2 192.168.1.52
+```
+
+Если недоступна — проверить Hyper-V на Windows-хосте, IP мог смениться (DHCP).
+
+### Шаг 2: VirtualHere-клиент запущен и ключи захвачены
+
+```bash
+sudo vhclientx86_64 -t 'LIST'
+# Ожидание: оба ключа "(In-use by you)"
+```
+
+Если клиент не запущен:
+```bash
+sudo nohup vhclientx86_64 -n >/tmp/vhclient.log 2>&1 &
+sudo vhclientx86_64 -t 'MANUAL HUB ADD,192.168.1.52:7575'
+sudo vhclientx86_64 -t 'USE,haspemul.11'
+sudo vhclientx86_64 -t 'USE,haspemul.12'
+```
+
+### Шаг 3: USB-ключи видны в системе
+
+```bash
+lsusb | grep Aladdin
+# Ожидание: два устройства 0529:0001
+```
+
+### Шаг 4: aksusbd определил ключи
+
+```bash
+ls /dev/aks/hasp/
+# Ожидание: симлинки 1-1, 1-2
+```
+
+Если пусто — пересканировать:
+```bash
+sudo udevadm trigger --subsystem-match=usb
+sudo systemctl restart aksusbd hasplm
+```
+
+### Шаг 5: Службы aksusbd и hasplm работают
+
+```bash
+sudo systemctl status aksusbd hasplm
+ss -ulnp | grep 475
+# Ожидание: hasplm слушает UDP:475
+```
+
+### Шаг 6: Сокет /tmp/.aksusb существует
+
+```bash
+ls -la /tmp/.aksusb
+# Ожидание: srw-rw-rw-
+```
+
+### Шаг 7: Контейнер onec-server видит ключи
+
+```bash
+sudo docker exec onec-server ls /dev/aks/hasp/ /tmp/.aksusb
+```
+
+Если не видит — проверить bind-mount'ы в docker-compose.yml (шаг 5 из README).
+
+### Шаг 8: nethasp.ini на месте
+
+```bash
+sudo docker exec onec-server cat /etc/1cv8/nethasp.ini
+# Ожидание: NH_SERVER_ADDR=127.0.0.1
+```
+
+Если отсутствует — восстановить по шагу 6 из README.
+
+### Шаг 9: Кластер 1С работает
+
+```bash
+sudo docker exec onec-server /opt/1cv8/current/rac localhost cluster list
+```
+
+## Типовые причины поломок
+
+1. **После Deploy-OnecInfra.ps1** — затёрты bind-mount'ы и nethasp.ini (см. README, раздел "При обновлении платформы")
+2. **После перезагрузки onec-infra VM** — VirtualHere-клиент не стартует автоматически
+3. **После перезагрузки HASPEMUL VM** — IP мог смениться, VH-соединения разорваны
+4. **После apt upgrade** — может удалиться libc6-i386, aksusbd сломается
+
+## Важно
+
+- **Не предлагать улучшений** архитектуры лицензирования
+- **Не менять способ подключения** — использовать только тот, что описан в README
+- **Не примаунтивать** дополнительные каталоги в docker-compose
+- Все восстановительные действия выполнять строго по README

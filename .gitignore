@@ -9,6 +9,7 @@
 .cursor/*
 !.cursor/rules/
 !.cursor/rules/devcontainer-rebuild-policy.mdc
+!.cursor/rules/licensing-diagnostics.mdc
 
 temp/
 

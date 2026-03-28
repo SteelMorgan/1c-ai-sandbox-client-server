@@ -236,4 +236,31 @@ EOF
   git config --global --unset-all core.hooksPath >/dev/null 2>&1 || true
 fi
 
+# ---------------------------------------------------------------------------
+# Fix ownership for vscode so it can install/update packages without sudo.
+# Volumes and image layers can reset ownership to root between rebuilds.
+# ---------------------------------------------------------------------------
+if id -u vscode >/dev/null 2>&1; then
+  # npm / node global dirs
+  for d in /usr/lib/node_modules /usr/local/lib/node_modules \
+           /usr/local/lib /usr/local/bin /usr/local/share /usr/local/include /usr/local; do
+    [ -d "$d" ] && chown -R vscode:vscode "$d" 2>/dev/null || true
+  done
+
+  # pip install without sudo
+  for d in /usr/lib/python3*/dist-packages /usr/local/lib/python3*; do
+    # glob may expand to nothing — guard with test
+    [ -d "$d" ] && chown -R vscode:vscode "$d" 2>/dev/null || true
+  done
+
+  # OneScript tooling lives in /opt/onescript (not touching /opt/1cv8 which belongs to usr1cv8)
+  [ -d "/opt/onescript" ] && chown -R vscode:vscode /opt/onescript 2>/dev/null || true
+
+  # Ensure tmp dirs have correct sticky-bit permissions
+  chmod 1777 /tmp /var/tmp 2>/dev/null || true
+
+  # Ensure vscode is in root group at runtime (belt-and-suspenders for volume mounts)
+  usermod -aG root vscode 2>/dev/null || true
+fi
+
 exec "$@"

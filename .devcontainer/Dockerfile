@@ -232,6 +232,16 @@ RUN npm install -g @anthropic-ai/claude-code
 RUN npm install -g @openai/codex
 RUN npm install -g @google/gemini-cli
 
+# Grant vscode ownership of global npm/node directories so it can update packages without sudo.
+RUN usermod -aG staff,root vscode \
+  && chown -R vscode:vscode \
+      /usr/lib/node_modules \
+      /usr/local/lib \
+      /usr/local/bin \
+      /usr/local/share \
+      /usr/local/include \
+      /usr/local
+
 # Bootstrap scripts live in image (workspace is a volume and may be empty at first start)
 RUN mkdir -p /usr/local/share/agent-sandbox/cli-agents/claude/tools \
              /usr/local/share/agent-sandbox/cli-agents/codex \
