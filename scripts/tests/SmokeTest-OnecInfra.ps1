@@ -15,7 +15,8 @@ param(
   [string]$NetIface = "",
 
   # Content / infra
-  [string]$InfobasesJsonPath = "infra/vm/infobases.json",
+  # Host-side infobase creation (Deploy-OnecInfra.ps1 / New-OnecInfobase.ps1).
+  [string]$InfobasesTxtPath = "infra/vm/infobases.txt",
   [string]$RemoteDir = "/opt/onec-sandbox",
 
   # Behavior
@@ -511,11 +512,11 @@ function Read-InfobaseNames([string]$repoRoot, [string]$path) {
   $p = $path
   if (-not [System.IO.Path]::IsPathRooted($p)) { $p = Join-Path $repoRoot $path }
   if (-not (Test-Path $p)) { return @() }
-  $json = Get-Content $p -Raw
-  $arr = $json | ConvertFrom-Json
+  $lines = Get-Content $p
   $names = @()
-  foreach ($x in $arr) {
-    if ($null -ne $x.name -and "$($x.name)".Trim().Length -gt 0) { $names += "$($x.name)" }
+  foreach ($line in $lines) {
+    $trimmed = $line.Trim()
+    if ($trimmed.Length -gt 0 -and -not $trimmed.StartsWith("#")) { $names += $trimmed }
   }
   return $names
 }
@@ -758,7 +759,7 @@ try {
 }
 
 Write-Host "[STEP] Deploying repo to VM and starting infra ..."
-& $deployScript -VmIp $VmIp -RemoteDir $RemoteDir -InfobasesJsonPath $InfobasesJsonPath -SshIdentityFile $sshKeyPath | Out-Null
+& $deployScript -VmIp $VmIp -RemoteDir $RemoteDir -InfobasesTxtPath $InfobasesTxtPath -SshIdentityFile $sshKeyPath | Out-Null
 
 Write-Host "[STEP] Waiting for onec-server to become healthy ..."
 $remote = "sandbox@$VmIp"
@@ -783,7 +784,7 @@ if (-not $clusterOut) { throw "rac cluster list returned empty output" }
 $clusterId = ($clusterOut | Select-String -Pattern "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}" | Select-Object -First 1).Matches.Value
 if (-not $clusterId) { throw "Cannot parse cluster id from rac output" }
 
-$names = Read-InfobaseNames $repoRoot $InfobasesJsonPath
+$names = Read-InfobaseNames $repoRoot $InfobasesTxtPath
 if ($names.Count -gt 0) {
   Write-Host "[STEP] Checking infobases registration ..."
   $ibOut = Ssh-Run $remote $sshKeyPath "sudo -n docker exec -i onec-server /opt/1cv8/current/rac infobase summary list 127.0.0.1:1545 --cluster=$clusterId 2>&1"
