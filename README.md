@@ -105,13 +105,14 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\hyperv\Publish-OnecInfob
 
 Дальше так:
 
-- Перед первым запуском создай **external volumes** `agent-work-sandbox-1c`, `onescript-cache-1c` и `onec-licenses`:
+- Перед первым запуском подготовь prerequisites клиентской песочницы: скрипт проверит и при необходимости создаст external volumes `agent-work-sandbox-1c`, `onescript-cache-1c`, `onec-licenses` и общую Docker network `infra` для клиентской песочницы и локальных вспомогательных сервисов:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\ensure-external-volumes.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\ensure-devcontainer-prereqs.ps1
 ```
 
-- Если менялся список external volumes в `.devcontainer/docker-compose.yml`, просто запусти этот скрипт ещё раз перед следующим `Rebuild Container`.
+- Скрипт читает настройки сети из `.devcontainer/.env` (`AGENT_INFRA_*`) и проверяет, что существующая сеть `infra` совпадает с ожидаемой конфигурацией.
+- Если менялся список external volumes или настройки сети в `.devcontainer/docker-compose.yml` / `.devcontainer/.env`, просто запусти этот скрипт ещё раз перед следующим `Rebuild Container`.
 - Именованный volume `agent-home-1c` `docker compose` создаст сам.
 - Данные в volume (`agent-work-sandbox-1c`, `onescript-cache-1c`, `onec-licenses`, `agent-home-1c`) **сохраняются при rebuild/recreate контейнера**. Они удалятся только если удалить volume явно.
 - Открываешь Cursor/VS Code
