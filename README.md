@@ -39,7 +39,7 @@
 │   - onec-licenses volume          │
 │                                   │
 │  Networking:                      │
-│   - (опц.) docker network "infra" │
+│   - docker network "infra"        │
 │   - /etc/hosts: onec-infra ->     │
 │     management IP VM (если задан) │
 └───────────────────────────────────┘

@@ -57,7 +57,7 @@ services:
     networks:
       default: {}
       infra:
-        ipv4_address: 192.168.0.10
+        ipv4_address: ${AGENT_INFRA_AGENT_IP:-192.168.0.10}
 
 secrets:
   # Build-time: download platform from releases.1c.ru (BuildKit secrets)
