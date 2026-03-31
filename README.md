@@ -105,13 +105,15 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\hyperv\Publish-OnecInfob
 
 Дальше так:
 
-- Перед первым запуском создай **external volumes** `agent-work-sandbox-1c`, `onescript-cache-1c` и `onec-licenses`:
+- Перед первым запуском создай **внешнюю сеть** `infra` (нужна для статического IP агента в compose) и **external volumes** `agent-work-sandbox-1c`, `onescript-cache-1c`, `onec-licenses`:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\ensure-external-volumes.ps1
 ```
 
-- Если менялся список external volumes в `.devcontainer/docker-compose.yml`, просто запусти этот скрипт ещё раз перед следующим `Rebuild Container`.
+Скрипт создаёт сеть `infra` с подсетью `192.168.0.0/24` (как в `.devcontainer/docker-compose.yml`, адрес контейнера `192.168.0.10`). Если сеть уже есть с другой подсетью — удали её (`docker network rm infra`) и запусти скрипт снова.
+
+- Если менялся список external volumes или параметры сети в `.devcontainer/docker-compose.yml`, просто запусти этот скрипт ещё раз перед следующим `Rebuild Container` (или поправь сеть вручную под новые значения).
 - Именованный volume `agent-home-1c` `docker compose` создаст сам.
 - Данные в volume (`agent-work-sandbox-1c`, `onescript-cache-1c`, `onec-licenses`, `agent-home-1c`) **сохраняются при rebuild/recreate контейнера**. Они удалятся только если удалить volume явно.
 - Открываешь Cursor/VS Code
