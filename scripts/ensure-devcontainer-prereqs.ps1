@@ -8,12 +8,39 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$repoRoot = Split-Path -Parent $PSScriptRoot
+$devcontainerEnvPath = Join-Path $repoRoot ".devcontainer\.env"
 
 function Assert-DockerAvailable {
   $docker = Get-Command docker -ErrorAction SilentlyContinue
   if (-not $docker) {
     throw "Команда 'docker' не найдена. Установи Docker Desktop/Engine и повтори."
   }
+}
+
+function Import-SimpleEnvFile([string]$Path) {
+  if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+    return @{}
+  }
+
+  $values = @{}
+  foreach ($line in Get-Content -LiteralPath $Path) {
+    $trimmed = $line.Trim()
+    if (-not $trimmed -or $trimmed.StartsWith("#")) {
+      continue
+    }
+
+    $idx = $trimmed.IndexOf("=")
+    if ($idx -lt 1) {
+      continue
+    }
+
+    $key = $trimmed.Substring(0, $idx).Trim()
+    $value = $trimmed.Substring($idx + 1).Trim()
+    $values[$key] = $value
+  }
+
+  return $values
 }
 
 function Ensure-Volume([string]$Name) {
@@ -78,6 +105,17 @@ function Ensure-Network([string]$Name) {
 }
 
 Assert-DockerAvailable
+
+$devcontainerEnv = Import-SimpleEnvFile $devcontainerEnvPath
+if ($devcontainerEnv.ContainsKey("AGENT_INFRA_NETWORK")) {
+  $NetworkName = $devcontainerEnv["AGENT_INFRA_NETWORK"]
+}
+if ($devcontainerEnv.ContainsKey("AGENT_INFRA_SUBNET")) {
+  $NetworkSubnet = $devcontainerEnv["AGENT_INFRA_SUBNET"]
+}
+if ($devcontainerEnv.ContainsKey("AGENT_INFRA_GATEWAY")) {
+  $NetworkGateway = $devcontainerEnv["AGENT_INFRA_GATEWAY"]
+}
 
 foreach ($volumeName in $VolumeNames) {
   Ensure-Volume $volumeName
