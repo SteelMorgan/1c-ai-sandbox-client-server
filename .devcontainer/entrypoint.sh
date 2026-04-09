@@ -116,6 +116,26 @@ start_xvfb() {
 
 start_xvfb
 
+start_clipboard_watch() {
+  # Clipboard image sync: a host-side tray app writes PNG into /tmp/cb-x11-sync/img.png
+  # (bind-mounted read-only). This daemon detects changes and loads the image into X11 clipboard
+  # via xclip so that CLI agents can paste screenshots with Ctrl+V.
+  if ! command -v xclip >/dev/null 2>&1; then
+    echo "WARNING: xclip is not installed; skipping clipboard-watch startup."
+    return 0
+  fi
+  if [ ! -x /usr/local/bin/clipboard-watch ]; then
+    return 0
+  fi
+  if id -u vscode >/dev/null 2>&1; then
+    su -s /bin/bash vscode -c "DISPLAY=${DISPLAY:-:99} nohup /usr/local/bin/clipboard-watch >/dev/null 2>&1 &"
+  else
+    DISPLAY="${DISPLAY:-:99}" nohup /usr/local/bin/clipboard-watch >/dev/null 2>&1 &
+  fi
+}
+
+start_clipboard_watch
+
 start_vnc_bridge() {
   # Bridge Xvfb (:99) to browser via noVNC.
   # - x11vnc exposes VNC on 5900

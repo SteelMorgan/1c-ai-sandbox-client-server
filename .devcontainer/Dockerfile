@@ -116,6 +116,8 @@ RUN apt-get update \
     novnc \
     websockify \
     dbus-x11 \
+    xclip \
+    xsel \
     xauth \
     ffmpeg \
     ghostscript \
@@ -262,11 +264,13 @@ COPY ./.devcontainer/cli-agents/codex/bootstrap.sh           /usr/local/share/ag
 COPY ./.devcontainer/cli-agents/codex/model-map.json         /usr/local/share/agent-sandbox/cli-agents/codex/model-map.json
 COPY ./.devcontainer/cli-agents/codex/model-overrides.json   /usr/local/share/agent-sandbox/cli-agents/codex/model-overrides.json
 COPY ./.devcontainer/cli-agents/gemini/bootstrap.sh          /usr/local/share/agent-sandbox/cli-agents/gemini/bootstrap.sh
+COPY ./.devcontainer/bin/clipboard-watch.sh     /usr/local/bin/clipboard-watch
 COPY ./.devcontainer/bin/agent-new-branch      /usr/local/bin/agent-new-branch
 COPY ./.devcontainer/bin/agent-task-branch     /usr/local/bin/agent-task-branch
 COPY ./.devcontainer/bin/agent-merge-to-agent  /usr/local/bin/agent-merge-to-agent
 COPY ./.devcontainer/bin/agent-open-pr         /usr/local/bin/agent-open-pr
 RUN sed -i 's/\r$//' \
+      /usr/local/bin/clipboard-watch \
       /usr/local/share/agent-sandbox/postCreateCommand.sh \
       /usr/local/share/agent-sandbox/entrypoint.sh \
       /usr/local/share/agent-sandbox/sync-onec-infra-hosts.sh \
@@ -281,6 +285,7 @@ RUN sed -i 's/\r$//' \
       /usr/local/bin/agent-merge-to-agent \
       /usr/local/bin/agent-open-pr \
   && chmod 0555 \
+      /usr/local/bin/clipboard-watch \
       /usr/local/bin/agent-new-branch \
       /usr/local/bin/agent-task-branch \
       /usr/local/bin/agent-merge-to-agent \

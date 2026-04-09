@@ -147,6 +147,27 @@ NODEJS
 fi
 
 # ---------------------------------------------------------------------------
+# Keybindings: Alt+V for image paste (Ctrl+V is consumed by the terminal)
+# ---------------------------------------------------------------------------
+mkdir -p "${HOME}/.claude"
+keybindings_file="${HOME}/.claude/keybindings.json"
+if [[ ! -f "${keybindings_file}" ]] || ! grep -q 'imagePaste' "${keybindings_file}" 2>/dev/null; then
+  cat > "${keybindings_file}" <<'KEYBINDINGS'
+{
+  "bindings": [
+    {
+      "context": "Chat",
+      "bindings": {
+        "alt+v": "chat:imagePaste"
+      }
+    }
+  ]
+}
+KEYBINDINGS
+  echo "[claude-bootstrap] keybindings.json written (alt+v → imagePaste)."
+fi
+
+# ---------------------------------------------------------------------------
 # ~/bin/claude-safe.sh — wrapper script
 # ---------------------------------------------------------------------------
 WRAPPER_DIR="${HOME}/bin"
