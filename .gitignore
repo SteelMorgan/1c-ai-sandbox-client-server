@@ -28,8 +28,6 @@ infra/vm/.env.*
 **/.env.local
 **/.env.*.local
 
-!.devcontainer/.env
-
 # Local caches / generated artifacts (never commit)
 .cache/
 backups/
@@ -54,4 +52,3 @@ node_modules/
 # OS / tooling
 **/.DS_Store
 **/Thumbs.db
-
