@@ -70,10 +70,13 @@ services:
       - onec-data:/var/lib/onec
       - onec-logs:/var/log/onec
     healthcheck:
+      # Only verify the cluster is alive. License availability is NOT checked here:
+      # the user may attach their own USB dongle or software license at any time,
+      # and community activation failures are logged separately (activation.log).
       test:
         [
           "CMD-SHELL",
-          "bash -lc 'set -euo pipefail; ep=\"127.0.0.1:$${RAS_PORT:-1545}\"; out=\"$$(/opt/1cv8/current/rac cluster list \"$$ep\" 2>/dev/null || true)\"; id=\"$$(printf \"%s\" \"$$out\" | grep -Eo \"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\" | head -n1 || true)\"; test -n \"$$id\"; test \"$$id\" != \"00000000-0000-0000-0000-000000000000\"; need_act=0; if [[ \"${ENABLE_COMMUNITY_ACTIVATION:-0}\" =~ ^(1|true|yes|y|on)$$ ]]; then need_act=1; elif [[ -s /run/secrets/dev_login && -s /run/secrets/dev_password ]]; then need_act=1; fi; if [[ \"$$need_act\" == \"1\" ]]; then find /var/1C/licenses -maxdepth 1 -type f -size +0 2>/dev/null | grep -q .; fi'"
+          "bash -lc 'set -euo pipefail; ep=\"127.0.0.1:$${RAS_PORT:-1545}\"; out=\"$$(/opt/1cv8/current/rac cluster list \"$$ep\" 2>/dev/null || true)\"; id=\"$$(printf \"%s\" \"$$out\" | grep -Eo \"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\" | head -n1 || true)\"; test -n \"$$id\"; test \"$$id\" != \"00000000-0000-0000-0000-000000000000\"'"
         ]
       interval: 5s
       timeout: 3s

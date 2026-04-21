@@ -223,6 +223,15 @@ fi
 ACTIVATION_IB_REGPORT=9141
 ACTIVATION_IB_DIRECT_RANGE=9160:9161
 
+# Remove stale license profile cache that prevents fresh activation.
+# Windows equivalent: C:\ProgramData\1C\1cv8\1cv8conn.pfl
+for pfl_dir in "${HOME}/.1cv8/1C/1cv8" "${invoking_home}/.1cv8/1C/1cv8"; do
+  if [[ -f "${pfl_dir}/1cv8conn.pfl" ]]; then
+    echo "[INFO] Removing stale ${pfl_dir}/1cv8conn.pfl (blocks activation)"
+    rm -f "${pfl_dir}/1cv8conn.pfl"
+  fi
+done
+
 echo "[INFO] Starting local ibsrv for activation..."
 /opt/1cv8/current/ibsrv \
   --db-path="$ACTIVATION_DB_PATH" \
@@ -291,8 +300,20 @@ if [[ "$rc" -ne 0 ]]; then
     echo "[DIAG] ibsrv tail (last 120):"
     tail -n 120 "$log" 2>/dev/null || true
   fi
+  echo ""
+  echo "[HINT] Possible causes:"
+  echo "  1. Wrong credentials — verify dev_login/dev_password in secrets/ match your portal.1c.ru account."
+  echo "  2. License bound to a different build — community license is tied to the exact build (e.g. 8.3.27.2074),"
+  echo "     NOT to the major version 8.3.27. If the platform was updated even to a patch release, the license breaks."
+  echo "     Fix: either revert to the build the license was issued for, or delete the license in your account"
+  echo "     at https://users.v8.1c.ru and request a new one for the current build (ONEC_VERSION=${ONEC_VERSION:-unknown})."
   exit 12
 fi
+
+# Remove license profile cache again after activation (may have been recreated).
+for pfl_dir in "${HOME}/.1cv8/1C/1cv8" "${invoking_home}/.1cv8/1C/1cv8"; do
+  rm -f "${pfl_dir}/1cv8conn.pfl" 2>/dev/null || true
+done
 
 if ! find "${SYSTEM_LICENSE_DIR}" -maxdepth 1 -type f -name '*.lic' -size +0 2>/dev/null | grep -q .; then
   echo "[ERROR] Activation finished but no license files were created in ${SYSTEM_LICENSE_DIR}"
@@ -308,6 +329,13 @@ if ! find "${SYSTEM_LICENSE_DIR}" -maxdepth 1 -type f -name '*.lic' -size +0 2>/
   fi
   echo "[DIAG] System license dir listing (${SYSTEM_LICENSE_DIR}):"
   ls -la "${SYSTEM_LICENSE_DIR}" 2>/dev/null || true
+  echo ""
+  echo "[HINT] Possible causes:"
+  echo "  1. Wrong credentials — verify dev_login/dev_password in secrets/ match your portal.1c.ru account."
+  echo "  2. License bound to a different build — community license is tied to the exact build (e.g. 8.3.27.2074),"
+  echo "     NOT to the major version 8.3.27. If the platform was updated even to a patch release, the license breaks."
+  echo "     Fix: either revert to the build the license was issued for, or delete the license in your account"
+  echo "     at https://users.v8.1c.ru and request a new one for the current build (ONEC_VERSION=${ONEC_VERSION:-unknown})."
   exit 11
 fi
 
