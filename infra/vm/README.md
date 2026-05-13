@@ -185,3 +185,83 @@ Healthcheck контейнера `onec-server` проверяет **только
 ```bash
 sudo docker compose -f infra/vm/docker-compose.yml restart onec-server
 ```
+
+## (Опционально) Webhook для рестарта 1С из dev-контейнера
+
+Маленький HTTP-сервис на ВМ, позволяющий перезапускать контейнеры `onec-server` / `onec-web` **без SSH-доступа** — только по Bearer-токену. Полезно, когда рестарт нужно дёргать из dev-контейнера, CI, мониторинга или прямо из 1С-кода (HTTP-запрос), а раздавать SSH-ключ от ВМ туда нежелательно.
+
+Если рестарт нужен только лично тебе с этой машины — проще без webhook'а:
+
+```bash
+ssh -i .cache/hyperv/_ssh/onec-infra/id_ed25519 sandbox@<MGMT_VM_IP> 'sudo docker restart onec-server'
+```
+
+### Что устанавливается
+
+- `/opt/onec-restart/restart_svc.py` — HTTP-сервис (stdlib, без зависимостей), слушает `:8765`.
+- `/etc/systemd/system/onec-restart.service` — systemd unit под пользователем `sandbox`, автозапуск.
+- `/etc/onec-restart/token` — Bearer-токен (`root:sandbox 640`).
+- ufw-правило: `8765/tcp` открыт **только из mgmt-сети `192.168.250.0/24`**.
+- Whitelist контейнеров (в unit): `onec-server`, `onec-web` — других рестартовать нельзя.
+- `usermod -aG docker sandbox` (если cloud-init этого не сделал).
+
+Исходники сервиса лежат в `infra/vm/restart-svc/`.
+
+### Установка / обновление
+
+Из dev-контейнера или git-bash на хосте (требуется SSH-ключ из `.cache/hyperv/_ssh/onec-infra/`):
+
+```bash
+./scripts/install-restart-svc.sh
+```
+
+Скрипт идемпотентен — повторный запуск обновит файлы и перезапустит сервис, используя **тот же** токен, если `secrets/onec_restart_token` уже существует.
+
+При первом запуске будет сгенерирован 32-байтный токен (`secrets.token_hex(32)`) и записан в:
+- `/etc/onec-restart/token` на ВМ;
+- `secrets/onec_restart_token` в репозитории (под общим `.gitignore` для `secrets/*`).
+
+### Использование
+
+Из dev-контейнера (ВМ резолвится по имени `onec-infra` через `.devcontainer/sync-onec-infra-hosts.sh`):
+
+```bash
+.devcontainer/bin/restart-1c            # рестарт onec-server (по умолчанию)
+.devcontainer/bin/restart-1c onec-web   # рестарт onec-web
+```
+
+Или curl'ом напрямую:
+
+```bash
+curl -X POST \
+  -H "Authorization: Bearer $(cat secrets/onec_restart_token)" \
+  http://onec-infra:8765/restart/onec-server
+```
+
+Health-эндпоинт (без авторизации):
+
+```bash
+curl http://onec-infra:8765/health
+# {"status": "ok", "allowed": ["onec-server", "onec-web"]}
+```
+
+Логи сервиса:
+
+```bash
+ssh sandbox@onec-infra 'sudo journalctl -u onec-restart.service -f'
+```
+
+### Ротация токена
+
+```bash
+rm secrets/onec_restart_token
+./scripts/install-restart-svc.sh
+```
+
+### Удаление
+
+```bash
+./scripts/install-restart-svc.sh --uninstall
+```
+
+Локальный файл `secrets/onec_restart_token` после `--uninstall` не удаляется — снеси вручную, если он больше не нужен.

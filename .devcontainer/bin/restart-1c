@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# Restart a 1C container on the VM via the onec-restart webhook.
+#
+# Usage:
+#   restart-1c                 # restarts onec-server
+#   restart-1c onec-web        # restarts onec-web
+#
+# Requires:
+#   - /workspaces/work/secrets/onec_restart_token  (created by scripts/install-restart-svc.sh)
+#   - VM reachable as `onec-infra` (set up by .devcontainer/sync-onec-infra-hosts.sh)
+
+set -euo pipefail
+
+CONTAINER="${1:-onec-server}"
+HOST="${ONEC_RESTART_HOST:-onec-infra}"
+PORT="${ONEC_RESTART_PORT:-8765}"
+TOKEN_FILE="${ONEC_RESTART_TOKEN_FILE:-/workspaces/work/secrets/onec_restart_token}"
+
+if [[ ! -s "$TOKEN_FILE" ]]; then
+  echo "ERROR: token file missing or empty: $TOKEN_FILE" >&2
+  echo "       Run scripts/install-restart-svc.sh from the host to generate it." >&2
+  exit 1
+fi
+
+TOKEN="$(tr -d '[:space:]' < "$TOKEN_FILE")"
+
+echo "[restart-1c] restarting ${CONTAINER} on ${HOST}..."
+http_code=$(curl -fsS -o /tmp/restart-1c.out -w '%{http_code}' \
+  --max-time 90 \
+  -X POST \
+  -H "Authorization: Bearer ${TOKEN}" \
+  "http://${HOST}:${PORT}/restart/${CONTAINER}") || {
+  echo "[restart-1c] request failed (HTTP ${http_code:-?})" >&2
+  cat /tmp/restart-1c.out >&2 2>/dev/null || true
+  echo >&2
+  exit 1
+}
+
+cat /tmp/restart-1c.out
+echo
+echo "[restart-1c] OK (HTTP ${http_code})"
