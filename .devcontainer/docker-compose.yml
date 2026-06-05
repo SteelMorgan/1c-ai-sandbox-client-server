@@ -2,6 +2,7 @@ services:
   agent:
     container_name: 1c-ai-sandbox
     hostname: 1c-ai-sandbox
+    mem_limit: 8g
     build:
       context: ..
       dockerfile: .devcontainer/Dockerfile
@@ -20,6 +21,9 @@ services:
       LC_ALL: "ru_RU.UTF-8"
       LC_CTYPE: "ru_RU.UTF-8"
       LANGUAGE: "ru_RU:ru"
+      # Orchestrator profile appended to the Claude system prompt by claude-safe.sh (cc/сс).
+      # Runtime cat: this path must be mounted/cloned before `cc` is invoked.
+      ORCHESTRATOR_PROFILE: "/workspaces/work/repos/1C Framework/1c-agent-based-dev-framework/framework_eng/subagents/orchestrator.md"
     env_file:
       - .env
       - ../infra/vm/.env
@@ -29,6 +33,7 @@ services:
       - dev_password
       - github_token
       - cc_api_key
+      - deepseek_api_key
     ports:
       # noVNC (browser) and VNC access to Xvfb :99
       - "6080:6080"
@@ -77,6 +82,8 @@ secrets:
     file: ../secrets/github_token
   cc_api_key:
     file: ../secrets/cc_api_key
+  deepseek_api_key:
+    file: ../secrets/deepseek_api_key
 
 volumes:
   agent-work-sandbox-1c:
@@ -95,3 +102,5 @@ networks:
   infra:
     external: true
     name: ${AGENT_INFRA_NETWORK:-infra}
+
+
