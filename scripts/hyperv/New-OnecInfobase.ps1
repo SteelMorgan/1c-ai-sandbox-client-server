@@ -59,8 +59,8 @@ function Validate-Name([string]$name, [string]$label) {
   $n = $n.Trim()
   if ($n.Length -eq 0) { throw "$label is empty." }
   # Keep it strict to avoid shell injection over SSH.
-  if ($n -notmatch "^[A-Za-z0-9_\\-\\.]{1,64}$") {
-    throw ("{0} must match ^[A-Za-z0-9_\\-\\.]{{1,64}}$. Got: '{1}'" -f $label, $n)
+  if ($n -notmatch "^[A-Za-z0-9_.-]{1,64}$") {
+    throw ("{0} must match ^[A-Za-z0-9_.-]{{1,64}}$. Got: '{1}'" -f $label, $n)
   }
   return $n
 }
@@ -303,4 +303,3 @@ if ($ec -ne 0) {
 }
 
 Write-Host ("[OK] Created infobase '{0}'. Connect: Srvr={1};Ref={0};" -f $ibName, $VmIp)
-

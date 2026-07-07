@@ -52,6 +52,7 @@ runcmd:
   - [bash, -lc, "ufw allow 1540/tcp || true"]
   - [bash, -lc, "ufw allow 1541/tcp || true"]
   - [bash, -lc, "ufw allow 1545/tcp || true"]
+  - [bash, -lc, "ufw allow 1550/tcp || true"]
   - [bash, -lc, "ufw allow 1560:1591/tcp || true"]
   - [bash, -lc, "ufw allow 5432/tcp || true"]
   - [bash, -lc, "ufw --force enable || true"]

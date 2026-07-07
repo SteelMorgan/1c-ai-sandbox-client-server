@@ -37,6 +37,7 @@ ensure_ufw_ports() {
   sudo -n ufw allow 1540/tcp >/dev/null 2>&1 || true
   sudo -n ufw allow 1541/tcp >/dev/null 2>&1 || true
   sudo -n ufw allow 1545/tcp >/dev/null 2>&1 || true
+  sudo -n ufw allow 1550/tcp >/dev/null 2>&1 || true
   sudo -n ufw allow 1560:1591/tcp >/dev/null 2>&1 || true
 }
 
