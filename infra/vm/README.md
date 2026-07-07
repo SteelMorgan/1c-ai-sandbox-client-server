@@ -265,3 +265,72 @@ rm secrets/onec_restart_token
 ```
 
 Локальный файл `secrets/onec_restart_token` после `--uninstall` не удаляется — снеси вручную, если он больше не нужен.
+
+## Обратный канал: onec-infra → песочница (v8-session-manager)
+
+Иногда нужно, чтобы **1С-сервер в VM** достучался **в обратную сторону** — до `v8-session-manager`
+песочницы (`ws://.../sessions`, порт `:4000` внутри контейнера `1c-ai-sandbox`).
+
+### Почему «в лоб» не работает
+
+Песочница и `onec-infra` живут в **разных гипервизорах**:
+
+- `1c-ai-sandbox` — контейнер в **Docker Desktop (WSL2)**. Его сети (`infra` `192.168.0.0/24`,
+  IP `192.168.0.10`, шлюз `192.168.65.254`) — приватные внутри Docker Desktop, заNATлены и
+  **снаружи не маршрутизируются**. Пробросить с VM маршрут на `192.168.0.x` / `192.168.65.x`
+  нельзя — за `192.168.250.1` этих подсетей нет.
+- `onec-infra` — отдельная **Hyper-V VM**.
+
+Контейнер Docker Desktop **нельзя подключить к Hyper-V-свитчу** (`onec-external` / `onec-mgmt`).
+Поэтому единственный мост — **через Windows-хост**: published-порт Docker Desktop +
+проброс на mgmt-интерфейс, который VM видит.
+
+### Постоянная схема
+
+```
+onec-infra (192.168.250.2)
+  → 192.168.250.1:14000        Windows-хост, vEthernet (onec-mgmt)
+  → netsh portproxy → 127.0.0.1:14000
+  → Docker Desktop published 14000→4000
+  → 1c-ai-sandbox: v8-session-manager :4000
+manager_url = ws://192.168.250.1:14000/sessions
+```
+
+Выбран mgmt-свитч `192.168.250.0/24` (а не LAN `onec-external`): IP хоста статический,
+канал приватный host↔VM, и проект уже стандартизировал на нём host↔VM трафик
+(SSH, restart-webhook с `ufw allow 192.168.250.0/24`).
+
+### Что устанавливается
+
+- Публикация портов `14000→4000` / `14001→4001` уже зашита в `.devcontainer/docker-compose.yml`
+  (переживает пересоздание контейнера).
+- На Windows-хосте — `netsh portproxy` + inbound-правило брандмауэра, **сужённое до
+  `192.168.250.0/24`**. Отдельного приложения/демона нет: сам проброс держит штатная
+  служба Windows **IP Helper (`iphlpsvc`)**, конфиг персистентен и переживает перезагрузку.
+
+### Установка (Windows-хост, от администратора)
+
+```powershell
+# 1. Пересоздать контейнер с публикацией портов
+docker compose -f .devcontainer\docker-compose.yml up -d
+
+# 2. Поднять портпрокси + firewall-правило (идемпотентно)
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\hyperv\Set-SandboxV8smPortProxy.ps1
+```
+
+Скрипт читает `MGMT_HOST_IP` из `infra/vm/.env` (по умолчанию `192.168.250.1`), при
+необходимости включает `iphlpsvc` и печатает итоговую таблицу `portproxy`.
+
+### Проверка (с onec-infra)
+
+```bash
+timeout 3 bash -lc '</dev/tcp/192.168.250.1/14000' && echo open
+```
+
+→ `manager_url = ws://192.168.250.1:14000/sessions`
+
+### Удаление
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\hyperv\Set-SandboxV8smPortProxy.ps1 -Remove
+```

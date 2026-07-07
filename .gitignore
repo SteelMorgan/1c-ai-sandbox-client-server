@@ -32,9 +32,15 @@ infra/vm/.env.*
 .cache/
 backups/
 .tmp/
+scripts/out/
+scripts/aggregate*.py
+scripts/classify.py
+scripts/count-changed-lines.sh
+scripts/dump-*.sh
 
 # 1C platform installers (local-only; do not publish)
 .devcontainer/distr/*.run
+.devcontainer/distr/*.tar.gz
 !.devcontainer/distr/.gitkeep
 
 # Editor / IDE

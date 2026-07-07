@@ -38,6 +38,12 @@ services:
       # noVNC (browser) and VNC access to Xvfb :99
       - "6080:6080"
       - "5900:5900"
+      # v8-session-manager (ws://.../sessions). Published on the Docker Desktop host
+      # as 14000/14001. The 1C infra VM (onec-infra) reaches these via a Windows-host
+      # portproxy+firewall on the mgmt switch (scripts/hyperv/Set-SandboxV8smPortProxy.ps1):
+      #   onec-infra -> 192.168.250.1:14000 -> 127.0.0.1:14000 (this published port) -> :4000
+      - "14000:4000"
+      - "14001:4001"
     volumes:
       # Separate workspace volume for 1C sandbox
       - agent-work-sandbox-1c:/workspaces/work

@@ -38,7 +38,9 @@ resolve_file() {
 
 HELPER_MJS="$(resolve_file helper.mjs)"
 CLAUDE_SAFE_SH="$(resolve_file tools/claude-safe.sh)"
-STATUSLINE_JS="$(resolve_file tools/statusline.js)"
+STATUSLINE_SH="$(resolve_file tools/statusline.sh)"
+INJECT_CATALOG_SH="$(resolve_file tools/claude-inject-skill-catalog.sh)"
+BLOCK_XML_EDIT_PY="$(resolve_file tools/block-direct-xml-edit.py)"
 
 # ---------------------------------------------------------------------------
 # Read secrets and env
@@ -128,21 +130,74 @@ if [[ "${DESIRED_MODE}" == "custom" && -n "${BASE_URL}" ]]; then
 fi
 
 # ---------------------------------------------------------------------------
-# Configure statusLine in ~/.claude/settings.json
+# Configure statusLine + SessionStart hook in ~/.claude/settings.json
 # ---------------------------------------------------------------------------
-if [[ -f "${STATUSLINE_JS}" ]] && command -v node >/dev/null 2>&1; then
+if command -v node >/dev/null 2>&1; then
   mkdir -p "${HOME}/.claude"
+  chmod +x "${STATUSLINE_SH}" 2>/dev/null || true
+  chmod +x "${INJECT_CATALOG_SH}" 2>/dev/null || true
+  chmod +x "${BLOCK_XML_EDIT_PY}" 2>/dev/null || true
   settings_file="${HOME}/.claude/settings.json"
-  node - "${settings_file}" "${STATUSLINE_JS}" <<'NODEJS'
+  # Pass paths only if the file exists; empty string => leave that part untouched.
+  statusline_arg="$([[ -f "${STATUSLINE_SH}" ]] && echo "${STATUSLINE_SH}" || echo "")"
+  inject_arg="$([[ -f "${INJECT_CATALOG_SH}" ]] && echo "${INJECT_CATALOG_SH}" || echo "")"
+  block_xml_arg="$([[ -f "${BLOCK_XML_EDIT_PY}" ]] && echo "${BLOCK_XML_EDIT_PY}" || echo "")"
+  # Auto-compact window (tokens). Overridable via CC_AUTO_COMPACT_WINDOW; default 400000.
+  auto_compact_window="${CC_AUTO_COMPACT_WINDOW:-400000}"
+  node - "${settings_file}" "${statusline_arg}" "${inject_arg}" "${auto_compact_window}" "${block_xml_arg}" <<'NODEJS'
 const fs = require('fs');
-const [,, settingsFile, statuslinePath] = process.argv;
+const [,, settingsFile, statuslinePath, injectPath, autoCompactWindow, blockXmlPath] = process.argv;
 let settings = {};
 try { settings = JSON.parse(fs.readFileSync(settingsFile, 'utf8')); } catch {}
-settings.statusLine = { type: 'command', command: `node "${statuslinePath}"` };
+
+// Idempotently upsert a hook entry: drop any prior entry whose hooks[] points at
+// the same command, then append the desired {matcher?, hooks:[{type,command}]}.
+function upsertHook(event, command, matcher) {
+  const hooks = settings.hooks && typeof settings.hooks === 'object' ? settings.hooks : {};
+  const list = Array.isArray(hooks[event]) ? hooks[event] : [];
+  const cleaned = list.filter((entry) =>
+    !(entry && Array.isArray(entry.hooks) && entry.hooks.some((h) => h && h.command === command)));
+  const entry = { hooks: [{ type: 'command', command }] };
+  if (matcher) entry.matcher = matcher;
+  cleaned.push(entry);
+  hooks[event] = cleaned;
+  settings.hooks = hooks;
+}
+
+if (statuslinePath) {
+  settings.statusLine = { type: 'command', command: `bash "${statuslinePath}"` };
+}
+
+if (autoCompactWindow) {
+  // Preserve any existing env (e.g. helper-managed ANTHROPIC_* keys); only set our key.
+  const env = settings.env && typeof settings.env === 'object' ? settings.env : {};
+  env.CLAUDE_CODE_AUTO_COMPACT_WINDOW = autoCompactWindow;
+  settings.env = env;
+}
+
 const permissions = settings.permissions && typeof settings.permissions === 'object' ? settings.permissions : {};
 settings.permissions = { ...permissions, defaultMode: 'bypassPermissions', ask: [], deny: [] };
+
+if (injectPath) {
+  // Skill-catalog injector: fires ONLY after compaction (source=compact). The native
+  // skill_listing is a one-shot attachment that is NOT re-sent post-compact, so the
+  // catalog must be rebuilt only then; on a fresh startup/resume the native listing is
+  // already present and re-injecting would just duplicate it.
+  upsertHook('SessionStart', `bash "${injectPath}"`, 'compact');
+}
+
+if (blockXmlPath) {
+  // Guard: block direct edits of 1C metadata XML/MXL — they must go through the xml-gen CLI.
+  upsertHook('PreToolUse', `python3 "${blockXmlPath}"`, 'Edit|Write|MultiEdit|NotebookEdit|Bash');
+}
+
 fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2), 'utf8');
-console.log('[claude-bootstrap] statusLine written to', settingsFile);
+const parts = [];
+if (statuslinePath) parts.push('statusLine');
+if (injectPath) parts.push('SessionStart(compact) hook');
+if (blockXmlPath) parts.push('PreToolUse xml-guard');
+if (autoCompactWindow) parts.push(`auto-compact=${autoCompactWindow}`);
+console.log('[claude-bootstrap] settings.json updated', parts.length ? `(${parts.join(', ')})` : '');
 NODEJS
 fi
 

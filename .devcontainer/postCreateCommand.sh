@@ -209,5 +209,11 @@ run_bootstrap cli-agents/codex/bootstrap.sh
 # ---------------------------------------------------------------------------
 run_bootstrap cli-agents/gemini/bootstrap.sh
 
+# ---------------------------------------------------------------------------
+# DeepSeek CLI bootstrap (idempotent). Uses /run/secrets/deepseek_api_key when present.
+# Configures full unrestricted access (devcontainer-safe).
+# ---------------------------------------------------------------------------
+run_bootstrap cli-agents/deepseek/bootstrap.sh
+
 # Global pre-push hook is installed by entrypoint (root-owned, locked-down).
 # (Still bypassable by a determined user; this is an anti-footgun.)

@@ -8,6 +8,7 @@
 - `dev_login`, `dev_password` — учётка `developer.1c.ru` (community activation).
 - `github_token` — GitHub PAT для `gh` внутри devcontainer (монтируется как `/run/secrets/github_token` и используется для автоматического `gh auth login`).
 - `cc_api_key` — токен для `cc-custom-helper` (монтируется как `/run/secrets/cc_api_key` и используется для настройки Claude Code на кастомный endpoint).
+- `deepseek_api_key` — API-ключ для DeepSeek CLI (монтируется как `/run/secrets/deepseek_api_key` и используется для настройки `@sluisr/deepseek-cli`).
 - `pg_password` — пароль Postgres (монтируется как `/run/secrets/pg_password` и используется и Postgres-контейнером, и скриптами создания ИБ).
 
 ### Как подготовить

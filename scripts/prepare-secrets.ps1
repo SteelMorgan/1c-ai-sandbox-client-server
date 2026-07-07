@@ -75,6 +75,7 @@ $devLogin = $m["DEV_LOGIN"]
 $devPassword = $m["DEV_PASSWORD"]
 $githubToken = $m["GITHUB_TOKEN"]
 $ccApiKey = $m["CC_API_KEY"]
+$deepseekApiKey = $m["DEEPSEEK_API_KEY"]
 $pgPassword = $m["PG_PASSWORD"]
 $forceOverwrite = $m["FORCE_OVERWRITE_PG_PASSWORD"]
 
@@ -84,6 +85,7 @@ Write-SecretFile (Join-Path $secretsPath "dev_login") $devLogin
 Write-SecretFile (Join-Path $secretsPath "dev_password") $devPassword
 Write-SecretFile (Join-Path $secretsPath "github_token") $githubToken
 Write-SecretFile (Join-Path $secretsPath "cc_api_key") $ccApiKey
+Write-SecretFile (Join-Path $secretsPath "deepseek_api_key") $deepseekApiKey
 
 # pg_password stability rules
 $pgFile = Join-Path $secretsPath "pg_password"
@@ -111,5 +113,6 @@ Write-Host "     - onec_username/onec_password"
 Write-Host "     - dev_login/dev_password"
 Write-Host "     - github_token"
 Write-Host "     - cc_api_key"
+Write-Host "     - deepseek_api_key"
 Write-Host "     - pg_password"
 

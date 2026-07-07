@@ -68,6 +68,7 @@ RUN apt-get update \
     tmux \
     npm \
     unzip \
+    jq \
   && rm -rf /var/lib/apt/lists/*
 
 # Passwordless sudo for vscode (enabled only when container is started without no-new-privileges).
@@ -229,10 +230,11 @@ RUN sed -i 's/\r$//' /usr/local/bin/onec-activate-community.sh \
   && chmod +x /usr/local/bin/onec-activate-community.sh
 
 # AI CLI agents for agent workflows inside the sandbox.
-# Files are organised under cli-agents/{claude,codex,gemini}/ in the repo.
+# Files are organised under cli-agents/{claude,codex,gemini,deepseek}/ in the repo.
 RUN npm install -g @anthropic-ai/claude-code
 RUN npm install -g @openai/codex
 RUN npm install -g @google/gemini-cli
+RUN npm install -g @sluisr/deepseek-cli
 
 # Grant vscode ownership of global npm/node directories so it can update packages without sudo.
 # Directory layout varies across base images and devcontainer features, so only chown paths that exist.
@@ -251,7 +253,8 @@ RUN usermod -aG staff,root vscode \
 # Bootstrap scripts live in image (workspace is a volume and may be empty at first start)
 RUN mkdir -p /usr/local/share/agent-sandbox/cli-agents/claude/tools \
              /usr/local/share/agent-sandbox/cli-agents/codex \
-             /usr/local/share/agent-sandbox/cli-agents/gemini
+             /usr/local/share/agent-sandbox/cli-agents/gemini \
+             /usr/local/share/agent-sandbox/cli-agents/deepseek
 COPY ./.devcontainer/postCreateCommand.sh           /usr/local/share/agent-sandbox/postCreateCommand.sh
 COPY ./.devcontainer/entrypoint.sh                  /usr/local/share/agent-sandbox/entrypoint.sh
 COPY ./.devcontainer/sync-onec-infra-hosts.sh       /usr/local/share/agent-sandbox/sync-onec-infra-hosts.sh
@@ -259,11 +262,12 @@ COPY ./.devcontainer/gh-auth-bootstrap.sh            /usr/local/share/agent-sand
 COPY ./.devcontainer/cli-agents/claude/helper.mjs            /usr/local/share/agent-sandbox/cli-agents/claude/helper.mjs
 COPY ./.devcontainer/cli-agents/claude/bootstrap.sh          /usr/local/share/agent-sandbox/cli-agents/claude/bootstrap.sh
 COPY ./.devcontainer/cli-agents/claude/tools/claude-safe.sh  /usr/local/share/agent-sandbox/cli-agents/claude/tools/claude-safe.sh
-COPY ./.devcontainer/cli-agents/claude/tools/statusline.js   /usr/local/share/agent-sandbox/cli-agents/claude/tools/statusline.js
+COPY ./.devcontainer/cli-agents/claude/tools/statusline.sh   /usr/local/share/agent-sandbox/cli-agents/claude/tools/statusline.sh
 COPY ./.devcontainer/cli-agents/codex/bootstrap.sh           /usr/local/share/agent-sandbox/cli-agents/codex/bootstrap.sh
 COPY ./.devcontainer/cli-agents/codex/model-map.json         /usr/local/share/agent-sandbox/cli-agents/codex/model-map.json
 COPY ./.devcontainer/cli-agents/codex/model-overrides.json   /usr/local/share/agent-sandbox/cli-agents/codex/model-overrides.json
 COPY ./.devcontainer/cli-agents/gemini/bootstrap.sh          /usr/local/share/agent-sandbox/cli-agents/gemini/bootstrap.sh
+COPY ./.devcontainer/cli-agents/deepseek/bootstrap.sh        /usr/local/share/agent-sandbox/cli-agents/deepseek/bootstrap.sh
 COPY ./.devcontainer/bin/clipboard-watch.sh     /usr/local/bin/clipboard-watch
 COPY ./.devcontainer/bin/agent-new-branch      /usr/local/bin/agent-new-branch
 COPY ./.devcontainer/bin/agent-task-branch     /usr/local/bin/agent-task-branch
@@ -278,8 +282,9 @@ RUN sed -i 's/\r$//' \
       /usr/local/share/agent-sandbox/cli-agents/claude/bootstrap.sh \
       /usr/local/share/agent-sandbox/cli-agents/codex/bootstrap.sh \
       /usr/local/share/agent-sandbox/cli-agents/gemini/bootstrap.sh \
+      /usr/local/share/agent-sandbox/cli-agents/deepseek/bootstrap.sh \
       /usr/local/share/agent-sandbox/cli-agents/claude/tools/claude-safe.sh \
-      /usr/local/share/agent-sandbox/cli-agents/claude/tools/statusline.js \
+      /usr/local/share/agent-sandbox/cli-agents/claude/tools/statusline.sh \
       /usr/local/bin/agent-new-branch \
       /usr/local/bin/agent-task-branch \
       /usr/local/bin/agent-merge-to-agent \
@@ -298,7 +303,9 @@ RUN sed -i 's/\r$//' \
       /usr/local/share/agent-sandbox/cli-agents/claude/bootstrap.sh \
       /usr/local/share/agent-sandbox/cli-agents/codex/bootstrap.sh \
       /usr/local/share/agent-sandbox/cli-agents/gemini/bootstrap.sh \
-      /usr/local/share/agent-sandbox/cli-agents/claude/tools/claude-safe.sh
+      /usr/local/share/agent-sandbox/cli-agents/deepseek/bootstrap.sh \
+      /usr/local/share/agent-sandbox/cli-agents/claude/tools/claude-safe.sh \
+      /usr/local/share/agent-sandbox/cli-agents/claude/tools/statusline.sh
 
 ENTRYPOINT ["/usr/local/share/agent-sandbox/entrypoint.sh"]
 USER root
