@@ -2,6 +2,7 @@ services:
   agent:
     container_name: 1c-ai-sandbox
     hostname: 1c-ai-sandbox
+    init: true
     mem_limit: 8g
     build:
       context: ..
@@ -108,5 +109,4 @@ networks:
   infra:
     external: true
     name: ${AGENT_INFRA_NETWORK:-infra}
-
 
