@@ -102,7 +102,7 @@ install_onescript_vanessa() {
 
     oscript --version
     opm --version
-    vrunner version
+    vrunner --version
 
     sudo touch "${marker}"
     sudo rm -f "/tmp/${onescript_zip}"
@@ -149,11 +149,11 @@ install_imagemagick7() {
       libxml2-dev \
       libxt-dev
 
-    curl -fsSLo /tmp/ImageMagick.tar.xz \
-      "https://imagemagick.org/archive/releases/ImageMagick-${imagemagick_version}.tar.xz"
+    curl -fsSLo /tmp/ImageMagick.tar.gz \
+      "https://github.com/ImageMagick/ImageMagick/archive/refs/tags/${imagemagick_version}.tar.gz"
     rm -rf /tmp/imagemagick-src
     mkdir -p /tmp/imagemagick-src
-    tar -xf /tmp/ImageMagick.tar.xz -C /tmp/imagemagick-src --strip-components=1
+    tar -xf /tmp/ImageMagick.tar.gz -C /tmp/imagemagick-src --strip-components=1
     cd /tmp/imagemagick-src
     ./configure \
       --prefix="${imagemagick_prefix}" \
@@ -170,7 +170,7 @@ install_imagemagick7() {
     magick --version
 
     sudo touch "${marker}"
-    sudo rm -rf /tmp/ImageMagick.tar.xz /tmp/imagemagick-src
+    sudo rm -rf /tmp/ImageMagick.tar.gz /tmp/imagemagick-src
     echo "==> ImageMagick ${imagemagick_version} installed"
   } 2>&1 | tee "${log_file}"
 }
